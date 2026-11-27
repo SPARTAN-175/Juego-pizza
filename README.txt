@@ -1,55 +1,28 @@
-PIZZA DELIVERY SIMULATOR 0.8 — TOP-DOWN CITY
+PIZZA DELIVERY SIMULATOR — STREET EDITION 0.6 (PWA)
 
-CAMBIOS DE ESTA VERSIÓN
-- Conducción manual sobre una red de calles descargada desde OpenStreetMap/Overpass.
-- La moto ya no recorre automáticamente una ruta completa. El jugador acelera, frena y elige giros en las intersecciones.
-- Los botones izquierda/derecha seleccionan el siguiente giro disponible cuando se llega a un cruce.
-- El GPS dibuja una ruta recomendada hacia el cliente y vuelve a calcularla después de cada intersección, aunque el jugador elija otra calle.
-- Domicilios situados en la red vial; para entregar hay que acercarse y detenerse.
-- Tráfico con 110 vehículos simulados sobre la red de calles cargada; los vehículos toman calles y cruces de forma independiente.
-- Estilo cenital reforzado: calles con bordes y pavimento, edificios con muros, techos de paleta variada y sombras simuladas a partir de huellas OSM.
-- Selector de mapa: CARTO Voyager a color, OpenStreetMap clásico y satélite Esri.
-- Cuando el jugador avanza fuera de la zona inicial, se solicitan datos viales adicionales alrededor de su posición y se incorporan a la red cargada.
-- Niveles: cada tres entregas aumenta el nivel y la velocidad máxima.
-- PWA instalable con manifest, icono y service worker para conservar los archivos de la aplicación.
-- Controles adaptados a teléfono vertical y horizontal.
+Esta versión parte de la Street Edition 0.5 que aparece en la captura del usuario. Conserva el mapa real, el estilo visual, los controles, las rutas OSRM, la flota de tráfico, los niveles y las entregas.
 
-CONTROLES
-- ▲ GAS: acelerar.
-- ▼ FRENO: reducir velocidad y detenerse.
-- ◀ IZQ.: elegir giro a la izquierda en el siguiente cruce.
-- ▶ DER.: elegir giro a la derecha en el siguiente cruce.
-- SEGUIR: centrar el mapa en la moto; al arrastrar el mapa se desactiva el seguimiento.
-- ZONA: buscar otra ciudad o localidad.
-- COLOR: alternar mapa a color, calles y satélite.
-- CASAS: mostrar/ocultar los edificios.
+NUEVO: MODO LIBRE
+- Activa el botón MODO LIBRE.
+- Toca cualquier punto visible del mapa para elegir un destino.
+- OSRM calcula una ruta por calles desde la posición actual hasta ese punto.
+- Acelera y frena manualmente; los controles izquierda/derecha ajustan la posición lateral en el carril.
+- Al llegar al destino, toca otro punto para continuar explorando.
+- Usa el botón de búsqueda para centrar el mapa en otra localidad; esto cambia el punto inicial de la sesión, no simula el trayecto entre las localidades.
 
-REQUISITOS Y LIMITACIONES REALES
-- Requiere internet para Leaflet/CDN, mosaicos cartográficos, datos viales de Overpass y geocodificación de Nominatim.
-- El service worker guarda el shell de la PWA, pero NO descarga mosaicos, calles ni edificios para uso offline. No es todavía un juego offline.
-- La descarga de calles prueba hasta tres servidores Overpass alternativos, con límite de espera por servidor y botón para reintentar si todos fallan.
-- Los 110 vehículos comparten la red vial local descargada; no se generan consultas de ruta individuales por automóvil. El tráfico no es una simulación de física completa y no bloquea físicamente al jugador todavía.
-- Los contornos de edificios solo aparecen donde OpenStreetMap tiene geometrías de construcción mapeadas. No todos los edificios de todas las localidades están registrados. El efecto de altura es una estilización 2.5D, no modelos 3D reales.
-- La conducción es manual por segmentos de calle conectados. En una intersección, se elige izquierda/derecha; si no se pulsa una dirección, continúa por la salida más recta. El GPS solo recomienda y no conduce por el jugador. Las calles sin salida pueden detener la marcha hasta elegir un giro disponible.
-- No se ha implementado todavía detección de choques, accidentes, semáforos, colisiones, carriles individuales ni bloqueo de calles.
-- La vista satelital es un servicio externo de Esri y puede tener condiciones de uso distintas a los mapas OSM.
+TRÁFICO
+- Conserva 160 vehículos visuales distribuidos sobre 6 rutas OSRM compartidas.
+- Al avanzar aproximadamente 7 km, el juego vuelve a generar rutas de tráfico alrededor de la nueva zona para que aparezcan vehículos en localidades posteriores.
+- Las solicitudes se escalonan para no generar 160 peticiones individuales.
 
-PUBLICACIÓN EN GITHUB PAGES
-1. Crea un repositorio público en GitHub.
-2. Sube TODOS los archivos de esta carpeta a la raíz del repositorio: index.html, app.js, styles.css, manifest.webmanifest, icon.svg y sw.js.
-3. En Settings > Pages selecciona Deploy from a branch, rama main y carpeta /(root).
-4. Abre la URL HTTPS que GitHub Pages genere. La instalación PWA requiere HTTPS.
-5. En Android, abre la URL en Chrome y usa el menú > Instalar aplicación o Añadir a pantalla de inicio.
+LO QUE NO DEBE CONFUNDIRSE
+- La moto requiere acelerador y freno, pero la geometría OSRM sigue guiando automáticamente las curvas de la ruta seleccionada. Los botones izquierda/derecha son ajustes de carril, no un volante libre para escoger cualquier giro.
+- Para tener conducción completamente libre con elección de cada intersección se necesita un motor de red vial navegable o un servicio de navegación que proporcione decisiones de giro; esta edición ofrece exploración manual de destinos y desvíos mediante puntos seleccionados en el mapa.
+- La búsqueda de otra localidad cambia el punto de inicio de la sesión; no permite todavía conducir físicamente una ruta intermunicipal continua desde la zona anterior.
 
-ATRIBUCIONES
-- Datos y geometrías: © OpenStreetMap contributors (ODbL).
-- Mosaicos: CARTO / OpenStreetMap; OpenStreetMap estándar; Esri World Imagery.
-- Librería: Leaflet 1.9.4.
-
-
-CAMBIOS 0.8
-- Se recupera Leaflet Routing Machine + OSRM del enfoque de la versión 0.4 para dibujar la ruta recomendada por calles.
-- OSRM solo calcula la guía GPS: NO controla el movimiento de la moto. La conducción sigue dependiendo de GAS, FRENO, IZQ. y DER.
-- Las consultas a Overpass ahora usan GET en lugar de POST form-encoded para evitar el preflight CORS que podía provocar Failed to fetch en GitHub Pages.
-- Se mantiene la red vial local para conducción manual y tráfico; al avanzar a otra zona se amplía la red.
-- OSRM público es un servicio de demostración sin garantía de disponibilidad; se limita la frecuencia de recálculo.
+REQUISITOS
+- Internet para mapas, geocodificación y OSRM.
+- Geolocalización requiere HTTPS y permiso del navegador.
+- OSRM demo y Nominatim son servicios públicos sin garantía de disponibilidad. Las políticas y límites de los proveedores pueden cambiar.
+- No usa Firebase.
+- PWA: se instala desde el menú de Chrome cuando se publica en GitHub Pages/HTTPS.

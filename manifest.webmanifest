@@ -1,1 +1,17 @@
-{"name":"Pizza Delivery Simulator","short_name":"Pizza Delivery","description":"Simulador de reparto con conducción libre","start_url":"./","scope":"./","display":"standalone","orientation":"any","background_color":"#14231d","theme_color":"#14231d","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "Pizza Delivery Simulator Street Edition",
+  "short_name": "Pizza Delivery",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#14231d",
+  "theme_color": "#14231d",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
