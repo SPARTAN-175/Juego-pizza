@@ -1,29 +1,22 @@
-PIZZA DELIVERY SIMULATOR — STREET EDITION 0.9
+PIZZA DELIVERY SIMULATOR — STREET EDITION 1.1
 
-Instalación:
-1. Descomprime el ZIP.
-2. Sube TODOS los archivos a la raíz de tu repositorio de GitHub Pages.
-3. Espera a que GitHub Pages publique los cambios.
-4. Abre la URL desde el teléfono, instala la PWA y úsala en horizontal.
+Instalación: descomprime y sube todos los archivos a la raíz del repositorio de GitHub Pages. En el teléfono, cierra por completo la PWA anterior y vuelve a abrirla para que el nuevo service worker sustituya la caché anterior.
 
-Conservación:
-- Se conserva el mapa Leaflet, proveedor de mapas, OSRM, tráfico, rutas y conducción por destino de Street Edition 0.6.
-- No se incorporó el sistema experimental de Overpass para conducir por calles manualmente.
-- Se reorganizaron los controles para pantallas horizontales pequeñas.
+Cambios 1.1:
+- Los pedidos externos aparecen automáticamente en intervalos aleatorios (aprox. 45 a 150 segundos), si no hay otro pedido externo pendiente o activo.
+- Pedidos de tienda: primero se navega a la tienda; al confirmar la compra, el destino cambia al domicilio del cliente; al llegar se cobra y se recuperan los productos adelantados más tarifa y propina.
+- Pedidos de pizza externos siguen un flujo directo al cliente.
+- Se amplió a 100 m el radio de llegada/confirmación para tolerar el ajuste de destino a la calle que hace OSRM.
+- Las compras/servicios de negocios personalizados requieren estar a menos de 85 m del local.
+- Turbo: 12 segundos activo y 60 segundos de recarga después de terminar el impulso; requiere combustible.
+- Reserva de combustible: aparece cuando el tanque principal llega a cero; se activa manualmente y es limitada.
 
-Novedades 0.9:
-- Panel de pedidos con aceptación/rechazo y cuenta regresiva de 15 segundos.
-- Pedidos de pizza y compras de tienda.
-- En compras, el costo de productos se adelanta del saldo y se recupera al cobrar; la ganancia es tarifa + propina.
-- Negocios personalizados colocables en el mapa: gasolinera, tienda, comedor/restaurante, cafetería, ropa, taller, hospital, pizzería y otros.
-- Los negocios se guardan localmente en este dispositivo y pueden editarse, moverse, activarse/desactivarse o eliminarse.
-- Economía básica: saldo, combustible, hambre, energía y estado del vehículo.
-- Ciclo horario acelerado con tinte nocturno/amanecer.
-- Turbo temporal con enfriamiento y consumo adicional de combustible.
+Se conserva la navegación por Leaflet/OSRM y la conducción por ruta. Los negocios personalizados continúan guardándose localmente en el dispositivo.
 
-Alcance y pruebas:
-- JavaScript validado con node --check y ZIP verificado.
-- No se pudo completar una prueba visual automatizada del navegador en este entorno.
-- Los negocios de OpenStreetMap no se importan automáticamente todavía. Si una zona no tiene puntos etiquetados, se pueden crear negocios manualmente desde el botón NEGOCIOS.
-- La persistencia de negocios usa almacenamiento local del navegador; no se sincroniza entre dispositivos.
-- El tráfico y las rutas requieren conexión a internet y los servicios públicos correspondientes.
+Validación realizada: `node --check app.js` y prueba de integridad del ZIP. No se ejecutó una prueba completa en navegador real; se debe probar la ruta y el flujo de pedidos en el teléfono.
+
+Ajustes 1.1:
+- Se eliminaron los botones de cambio de carril que no tenían una función útil.
+- El botón inferior ahora es REVERSA: frena la marcha hacia delante y después mueve la moto hacia atrás por la ruta actual.
+- Turbo activo durante 60 segundos y recarga automática durante 60 segundos.
+- Reserva de combustible conservada en 8%.
