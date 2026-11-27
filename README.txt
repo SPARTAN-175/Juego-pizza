@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR — STREET EDITION 1.1
+PIZZA DELIVERY SIMULATOR — STREET EDITION 1.2
 
 Instalación: descomprime y sube todos los archivos a la raíz del repositorio de GitHub Pages. En el teléfono, cierra por completo la PWA anterior y vuelve a abrirla para que el nuevo service worker sustituya la caché anterior.
 
@@ -20,3 +20,11 @@ Ajustes 1.1:
 - El botón inferior ahora es REVERSA: frena la marcha hacia delante y después mueve la moto hacia atrás por la ruta actual.
 - Turbo activo durante 60 segundos y recarga automática durante 60 segundos.
 - Reserva de combustible conservada en 8%.
+
+AJUSTES 1.2 — ENTREGAS Y PREPARACIÓN DE CIUDAD
+- La confirmación de entregas ahora se basa en la distancia restante al extremo de la ruta ajustada por OSRM, con margen de 160 m. Esto evita depender de una coordenada de domicilio que puede quedar fuera de la calle transitable.
+- Cada pizza propia entregada registra una venta de $275 MXN para el negocio.
+- Los pedidos de tienda solo se generan si existe al menos una tienda personalizada activa.
+- Al aceptar una compra, el juego toma la ubicación de una tienda colocada en el mapa; primero se navega a esa tienda y después al domicilio del cliente.
+- El panel NEGOCIOS indica cuántas tiendas, gasolineras y otros negocios hay colocados.
+- Deben colocarse manualmente en el mapa las ubicaciones que se quieran usar. No se inventan comercios reales ni se crean ubicaciones aleatorias de tiendas.
