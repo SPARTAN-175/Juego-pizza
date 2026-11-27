@@ -2,6 +2,7 @@
 const DEFAULT_CENTER=[17.4056,-93.3371],$=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:false,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:false,keyboard:false}).setView(DEFAULT_CENTER,17);
 const styles=[{name:'Color',url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',attr:'© OpenStreetMap contributors © CARTO'},{name:'Calles',url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap contributors'},{name:'Satélite',url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'Tiles © Esri'}];
+let routeControl=null,routeThrottle=null,lastOSRMRequest=0,osrmRouteReady=false;
 let styleIndex=0,tiles=L.tileLayer(styles[0].url,{maxZoom:19,attribution:styles[0].attr}).addTo(map);
 let origin=L.latLng(...DEFAULT_CENTER),playerPos=origin,playerMarker=null,customerMarker=null,customerNode=null,routeLine=null,routePath=[];
 let graph=new Map(),nodes=new Map(),loadedWayIds=new Set(),roadLayers=[],buildingLayers=[],buildingCount=0,networkReady=false,networkLoading=false,lastNetworkBounds='',lastNetworkCenter=null,lastExtendAt=0,showBuildings=true;
@@ -35,9 +36,10 @@ async function requestOverpass(query){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),11000);
   try{
    $('driveStatus').textContent=`BUSCANDO CALLES · SERVIDOR ${i+1}/${OVERPASS_ENDPOINTS.length}`;
-   const response=await fetch(OVERPASS_ENDPOINTS[i],{
-    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-    body:'data='+encodeURIComponent(query),signal:controller.signal
+   const separator=OVERPASS_ENDPOINTS[i].includes('?')?'&':'?';
+   const response=await fetch(OVERPASS_ENDPOINTS[i]+separator+'data='+encodeURIComponent(query),{
+    method:'GET',mode:'cors',headers:{'Accept':'application/json'},signal:controller.signal,
+    cache:'no-store'
    });
    if(!response.ok)throw Error(`Servidor ${response.status}`);
    const data=await response.json();
@@ -92,11 +94,16 @@ async function loadNetwork(center=map.getCenter(),force=false){
    loadedWayIds.add('b'+way.id);
    const pts=way.geometry.map(p=>L.latLng(p.lat,p.lon));
    const color=roofColor(way);
-   const shadow=L.polygon(pts.map(p=>L.latLng(p.lat-0.000025,p.lng+0.000025)),{stroke:false,fillColor:'#171a18',fillOpacity:.48,interactive:false});
-   const wall=L.polygon(pts,{color:'#514d47',weight:2,opacity:.95,fillColor:'#716b61',fillOpacity:1,interactive:false});
-   const roof=L.polygon(pts,{color:'#d1c4a8',weight:1,opacity:.75,fillColor:color,fillOpacity:.98,interactive:false});
-   if(showBuildings){shadow.addTo(map);wall.addTo(map);roof.addTo(map)}
-   buildingLayers.push(shadow,wall,roof);buildingCount++;
+   const center=pts.reduce((a,p)=>({lat:a.lat+p.lat/pts.length,lng:a.lng+p.lng/pts.length}),{lat:0,lng:0});
+   // Contorno oscuro + techo retraído: simula paredes y volumen desde vista cenital.
+   const inset=pts.map(p=>L.latLng(center.lat+(p.lat-center.lat)*.86,center.lng+(p.lng-center.lng)*.86));
+   const shadow=L.polygon(pts.map(p=>L.latLng(p.lat-0.000035,p.lng+0.000035)),{stroke:false,fillColor:'#171a18',fillOpacity:.52,interactive:false});
+   const wall=L.polygon(pts,{color:'#4c4944',weight:1.8,opacity:.98,fillColor:'#777168',fillOpacity:1,interactive:false});
+   const roof=L.polygon(inset,{color:'#d6c9ad',weight:1,opacity:.9,fillColor:color,fillOpacity:.99,interactive:false});
+   const detailColor=['#d9c9a9','#766d60','#a5a08f','#c7b18d'][Math.abs(Number(way.id)||0)%4];
+   const roofDetail=L.circleMarker([center.lat,center.lng],{radius:1.35,color:'#5b554c',weight:.65,fillColor:detailColor,fillOpacity:.95,interactive:false});
+   if(showBuildings){shadow.addTo(map);wall.addTo(map);roof.addTo(map);roofDetail.addTo(map)}
+   buildingLayers.push(shadow,wall,roof,roofDetail);buildingCount++;
   }
   roadLayers.forEach(l=>l.bringToFront());
   networkReady=graph.size>10;
@@ -126,7 +133,49 @@ async function loadNetwork(center=map.getCenter(),force=false){
 $('retryLoad').onclick=()=>loadNetwork(playerPos,true);
 function nearestNode(p){let best=null,d=Infinity;for(const[id,q]of nodes){const x=dist(p,q);if(x<d){d=x;best=id}}return best}
 function dijkstra(start,goal){if(!start||!goal)return[];const ds=new Map([[start,0]]),prev=new Map(),open=new Set([start]);while(open.size){let u=null,du=Infinity;for(const x of open){const v=ds.get(x)??Infinity;if(v<du){du=v;u=x}}if(u===null||u===goal)break;open.delete(u);for(const e of graph.get(u)||[]){const nd=du+e.len;if(nd<(ds.get(e.to)??Infinity)){ds.set(e.to,nd);prev.set(e.to,u);open.add(e.to)}}}if(!ds.has(goal))return[];const path=[goal];while(path[0]!==start){const p=prev.get(path[0]);if(p===undefined)return[];path.unshift(p)}return path}
-function refreshRoute(){if(!networkReady||!customerNode)return;const p=dijkstra(currentNode||nearestNode(playerPos),customerNode);routePath=p;routeDistance=0;for(let i=1;i<p.length;i++)routeDistance+=dist(nodes.get(p[i-1]),nodes.get(p[i]));if(routeLine)map.removeLayer(routeLine);if(p.length>1)routeLine=L.polyline(p.map(id=>nodes.get(id)),{color:'#fff',weight:9,opacity:.85,interactive:false}).addTo(map).bringToFront();$('routeKm').textContent=(routeDistance/1000).toFixed(2)+' km';$('routeStatus').textContent=p.length?'GPS · RUTA RECOMENDADA':'SIN CONEXIÓN VIAL';updateMission()}
+function ensureOSRMControl(){
+ if(routeControl)return;
+ routeControl=L.Routing.control({
+  waypoints:[],
+  router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1',profile:'driving',timeout:25000}),
+  show:false,collapsible:false,addWaypoints:false,draggableWaypoints:false,
+  routeWhileDragging:false,fitSelectedRoutes:false,createMarker:()=>null,
+  lineOptions:{styles:[{color:'#ffffff',weight:10,opacity:.9},{color:'#13b981',weight:6,opacity:1}]}
+ }).addTo(map);
+ routeControl.on('routesfound',e=>{
+  const r=e.routes?.[0];if(!r?.coordinates?.length)return;
+  osrmRouteReady=true;routeDistance=r.summary.totalDistance||0;
+  $('routeKm').textContent=(routeDistance/1000).toFixed(2)+' km';
+  $('routeStatus').textContent='GPS · OSRM · RUTA POR CALLES';
+  if(routeLine){map.removeLayer(routeLine);routeLine=null}
+  updateMission();
+ });
+ routeControl.on('routingerror',()=>{
+  osrmRouteReady=false;
+  $('routeStatus').textContent='GPS · RUTA LOCAL';
+  toast('OSRM no respondió; se conserva la guía local.');
+ });
+}
+function refreshRoute(){
+ if(!networkReady||!customerNode||!nodes.has(customerNode))return;
+ const p=dijkstra(currentNode||nearestNode(playerPos),customerNode);routePath=p;
+ let localDistance=0;for(let i=1;i<p.length;i++)localDistance+=dist(nodes.get(p[i-1]),nodes.get(p[i]));
+ if(routeLine)map.removeLayer(routeLine);
+ if(p.length>1)routeLine=L.polyline(p.map(id=>nodes.get(id)),{color:'#ffffff',weight:8,opacity:.8,interactive:false,dashArray:'5 7'}).addTo(map).bringToFront();
+ if(!osrmRouteReady)$('routeKm').textContent=(localDistance/1000).toFixed(2)+' km';
+ $('routeStatus').textContent=p.length?'GPS · CALCULANDO RUTA POR CALLES':'SIN CONEXIÓN VIAL';
+ updateMission();
+ // OSRM is only the GPS guide. Player movement remains controlled by GAS/FRENO/IZQ./DER.
+ clearTimeout(routeThrottle);
+ const wait=Math.max(0,1250-(Date.now()-lastOSRMRequest));
+ routeThrottle=setTimeout(()=>{
+  if(!routeControl)ensureOSRMControl();
+  const destination=nodes.get(customerNode);
+  if(!destination)return;
+  lastOSRMRequest=Date.now();
+  routeControl.setWaypoints([L.latLng(playerPos.lat,playerPos.lng),L.latLng(destination.lat,destination.lng)]);
+ },wait);
+}
 function newCustomer(){if(customerMarker)map.removeLayer(customerMarker);const ids=[...nodes.keys()];if(ids.length<2)return;let pick=null;for(let i=0;i<180;i++){const id=ids[Math.floor(Math.random()*ids.length)],d=dist(playerPos,nodes.get(id));if(d>350&&d<2200){pick=id;break}}customerNode=pick||ids[Math.floor(Math.random()*ids.length)];const p=nodes.get(customerNode);customerMarker=L.marker(p,{icon:pizzaIcon(),zIndexOffset:500}).addTo(map).bindPopup('Domicilio del cliente');$('missionName').textContent=`Cliente · Nivel ${level}`;refreshRoute()}
 function updateMission(){if(!customerNode||!nodes.has(customerNode))return;const d=dist(playerPos,nodes.get(customerNode));$('missionDistance').textContent=`A ${Math.round(d)} m del cliente`;const ok=d<24&&speed<1.5;$('deliver').disabled=!ok}
 function chooseNext(from,prev,turn='auto',goal=customerNode){const opts=(graph.get(from)||[]).filter(e=>e.to!==prev);if(!opts.length)return null;if(opts.length===1)return opts[0];const originP=nodes.get(from),prevP=nodes.get(prev)||playerPos;const inAngle=bearing(prevP,originP);let ranked=opts.map(e=>{const out=bearing(originP,nodes.get(e.to));let delta=((out-inAngle+540)%360)-180;return{e,delta,score:Math.abs(delta)}});if(turn==='left'){const cand=ranked.filter(x=>x.delta< -18).sort((a,b)=>Math.abs(a.delta)-Math.abs(b.delta));if(cand.length)return cand[0].e}if(turn==='right'){const cand=ranked.filter(x=>x.delta>18).sort((a,b)=>Math.abs(a.delta)-Math.abs(b.delta));if(cand.length)return cand[0].e}if(turn==='straight'){ranked.sort((a,b)=>a.score-b.score);return ranked[0].e}const path=dijkstra(from,goal);if(path.length>1){const found=opts.find(e=>e.to===path[1]);if(found)return found}ranked.sort((a,b)=>a.score-b.score);return ranked[0].e}
@@ -140,7 +189,7 @@ $('deliver').onclick=finishDelivery;
 function hold(id,fn){const el=$(id),down=e=>{e.preventDefault();fn(true);el.classList.add('pressed')},up=e=>{e.preventDefault();fn(false);el.classList.remove('pressed')};el.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave','lostpointercapture'].forEach(x=>el.addEventListener(x,up))}hold('accelerate',v=>gas=v);hold('brake',v=>brake=v);hold('left',v=>left=v);hold('right',v=>right=v);
 function frame(now){const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;if(networkReady){if(lastNetworkCenter&&dist(playerPos,lastNetworkCenter)>1050&&now-lastExtendAt>14000&&!networkLoading){lastExtendAt=now;loadNetwork(playerPos)}elapsed+=dt;$('timer').textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(Math.floor(elapsed%60)).padStart(2,'0');movePlayer(dt);updateTraffic(dt)}requestAnimationFrame(frame)}
 async function locate(){if(!navigator.geolocation){map.setView(DEFAULT_CENTER,17);await loadNetwork();return}navigator.geolocation.getCurrentPosition(async p=>{origin=L.latLng(p.coords.latitude,p.coords.longitude);playerPos=origin;map.setView(origin,17);await loadNetwork(origin)},async()=>{map.setView(DEFAULT_CENTER,17);await loadNetwork(L.latLng(...DEFAULT_CENTER))},{enableHighAccuracy:true,timeout:15000,maximumAge:30000})}
-$('searchArea').onclick=()=>{const q=prompt('Escribe ciudad, municipio y estado:');if(!q)return;fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q)).then(r=>r.json()).then(async d=>{if(!d.length)throw Error();speed=0;playerPos=L.latLng(+d[0].lat,+d[0].lon);currentNode=null;nextNode=null;customerNode=null;traffic.forEach(c=>map.removeLayer(c.marker));traffic=[];graph=new Map();nodes=new Map();loadedWayIds=new Set();clearNetworkLayers();networkReady=false;lastNetworkCenter=null;map.setView(playerPos,17);await loadNetwork(playerPos,true)}).catch(()=>toast('No se encontró la zona.'))};
+$('searchArea').onclick=()=>{const q=prompt('Escribe ciudad, municipio y estado:');if(!q)return;fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q)).then(r=>r.json()).then(async d=>{if(!d.length)throw Error();speed=0;playerPos=L.latLng(+d[0].lat,+d[0].lon);currentNode=null;nextNode=null;customerNode=null;traffic.forEach(c=>map.removeLayer(c.marker));traffic=[];graph=new Map();nodes=new Map();loadedWayIds=new Set();clearNetworkLayers();networkReady=false;osrmRouteReady=false;lastNetworkCenter=null;map.setView(playerPos,17);await loadNetwork(playerPos,true)}).catch(()=>toast('No se encontró la zona.'))};
 let loadDebounce=null;map.on('moveend',()=>{if(!networkReady||!map.getBounds().contains(playerPos))return;clearTimeout(loadDebounce);loadDebounce=setTimeout(()=>{const c=map.getCenter();if(dist(c,playerPos)>1200)loadNetwork(c)},900)});
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(console.warn));
 locate();requestAnimationFrame(frame);

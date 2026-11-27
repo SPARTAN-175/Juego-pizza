@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR 0.7 — TOP-DOWN CITY
+PIZZA DELIVERY SIMULATOR 0.8 — TOP-DOWN CITY
 
 CAMBIOS DE ESTA VERSIÓN
 - Conducción manual sobre una red de calles descargada desde OpenStreetMap/Overpass.
@@ -45,3 +45,11 @@ ATRIBUCIONES
 - Datos y geometrías: © OpenStreetMap contributors (ODbL).
 - Mosaicos: CARTO / OpenStreetMap; OpenStreetMap estándar; Esri World Imagery.
 - Librería: Leaflet 1.9.4.
+
+
+CAMBIOS 0.8
+- Se recupera Leaflet Routing Machine + OSRM del enfoque de la versión 0.4 para dibujar la ruta recomendada por calles.
+- OSRM solo calcula la guía GPS: NO controla el movimiento de la moto. La conducción sigue dependiendo de GAS, FRENO, IZQ. y DER.
+- Las consultas a Overpass ahora usan GET en lugar de POST form-encoded para evitar el preflight CORS que podía provocar Failed to fetch en GitHub Pages.
+- Se mantiene la red vial local para conducción manual y tráfico; al avanzar a otra zona se amplía la red.
+- OSRM público es un servicio de demostración sin garantía de disponibilidad; se limita la frecuencia de recálculo.

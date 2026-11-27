@@ -3,3 +3,6 @@
 .retry-load{border:0;border-radius:9px;background:#ffc84a;color:#1d281f;padding:8px;font-size:10px;font-weight:1000;margin-top:4px}
 .retry-load[hidden]{display:none}
 .leaflet-overlay-pane svg{overflow:visible}
+
+/* Leaflet Routing Machine: keep its route geometry, hide its itinerary panel */
+.leaflet-routing-container{display:none!important}
