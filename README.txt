@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR 0.6 — FREE DRIVE
+PIZZA DELIVERY SIMULATOR 0.7 — TOP-DOWN CITY
 
 CAMBIOS DE ESTA VERSIÓN
 - Conducción manual sobre una red de calles descargada desde OpenStreetMap/Overpass.
@@ -7,7 +7,7 @@ CAMBIOS DE ESTA VERSIÓN
 - El GPS dibuja una ruta recomendada hacia el cliente y vuelve a calcularla después de cada intersección, aunque el jugador elija otra calle.
 - Domicilios situados en la red vial; para entregar hay que acercarse y detenerse.
 - Tráfico con 110 vehículos simulados sobre la red de calles cargada; los vehículos toman calles y cruces de forma independiente.
-- Edificios representados desde arriba usando los contornos reales disponibles en OpenStreetMap, con techo y sombra 2.5D estilizados.
+- Estilo cenital reforzado: calles con bordes y pavimento, edificios con muros, techos de paleta variada y sombras simuladas a partir de huellas OSM.
 - Selector de mapa: CARTO Voyager a color, OpenStreetMap clásico y satélite Esri.
 - Cuando el jugador avanza fuera de la zona inicial, se solicitan datos viales adicionales alrededor de su posición y se incorporan a la red cargada.
 - Niveles: cada tres entregas aumenta el nivel y la velocidad máxima.
@@ -27,10 +27,10 @@ CONTROLES
 REQUISITOS Y LIMITACIONES REALES
 - Requiere internet para Leaflet/CDN, mosaicos cartográficos, datos viales de Overpass y geocodificación de Nominatim.
 - El service worker guarda el shell de la PWA, pero NO descarga mosaicos, calles ni edificios para uso offline. No es todavía un juego offline.
-- La red vial se amplía por zonas mientras conduces. El servicio Overpass puede tardar, limitar peticiones o no responder; el juego no debe consultar repetidamente en intervalos cortos.
+- La descarga de calles prueba hasta tres servidores Overpass alternativos, con límite de espera por servidor y botón para reintentar si todos fallan.
 - Los 110 vehículos comparten la red vial local descargada; no se generan consultas de ruta individuales por automóvil. El tráfico no es una simulación de física completa y no bloquea físicamente al jugador todavía.
 - Los contornos de edificios solo aparecen donde OpenStreetMap tiene geometrías de construcción mapeadas. No todos los edificios de todas las localidades están registrados. El efecto de altura es una estilización 2.5D, no modelos 3D reales.
-- La conducción es manual por segmentos de calle conectados. En una intersección, se elige izquierda/derecha; si no se pulsa una dirección, el GPS selecciona el siguiente tramo recomendado. Las calles sin salida pueden detener la marcha hasta elegir un giro disponible.
+- La conducción es manual por segmentos de calle conectados. En una intersección, se elige izquierda/derecha; si no se pulsa una dirección, continúa por la salida más recta. El GPS solo recomienda y no conduce por el jugador. Las calles sin salida pueden detener la marcha hasta elegir un giro disponible.
 - No se ha implementado todavía detección de choques, accidentes, semáforos, colisiones, carriles individuales ni bloqueo de calles.
 - La vista satelital es un servicio externo de Esri y puede tener condiciones de uso distintas a los mapas OSM.
 
