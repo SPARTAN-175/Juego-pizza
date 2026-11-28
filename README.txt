@@ -90,3 +90,11 @@ MAPA SIN INTERNET — LIMITACIÓN IMPORTANTE
 - Para un mapa offline real se necesita integrar un proveedor con licencia explícita para paquetes offline o alojar mosaicos propios (por ejemplo, un paquete MBTiles/PMTiles servido localmente), además de datos de rutas y búsqueda offline. No se anuncia compatibilidad offline completa hasta implementar y probar esa solución.
 
 Validación 1.8: `node --check app.js` y prueba de integridad del ZIP. No se realizó una prueba de conducción en navegador real.
+
+
+ACTUALIZACIÓN STREET EDITION 1.9
+- Modo libre usa compresión arcade x12: a 60 km/h indicados, un trayecto de 166 km se estima en unos 13 min 50 s. Con turbo a 80 km/h, unos 10 min 22 s.
+- La velocidad mostrada sigue siendo la velocidad simulada del vehículo; el avance por la ruta y el reloj del mundo se aceleran para hacer los trayectos largos jugables.
+- Nuevo botón AUTO: activa el avance automático por la ruta calculada. Al llegar al destino se desactiva; al apagarlo regresan los controles manuales.
+- Se reorganizaron los controles para reducir superposiciones en móvil y escritorio.
+- El botón OFFLINE informa del estado real: por ahora se guarda la aplicación PWA, pero los mosaicos del mapa, geocodificación y rutas siguen dependiendo de internet. No se anuncia descarga cartográfica offline porque esta versión aún no incorpora un paquete de mapas y motor de rutas local.

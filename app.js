@@ -37,12 +37,12 @@ let businessStats={revenue:0,deliveries:0};
 let level=1, elapsedSeconds=0;
 let followPlayer=true, mode='game';
 let freeDriveMode=false, freeDestination=null, freeDestinationMarker=null, lastTrafficRefreshPos=null, trafficRefreshBusy=false;
-let accelerate=false, brake=false;
+let accelerate=false, brake=false, autoDrive=false;
 let lastFrame=performance.now(), toastTimer=null, offRouteFrames=0, lastRerouteAt=0, trafficAccumulator=0;
 const BASE_MAX_SPEED=12.5; // 45 km/h al inicio
 const FREE_NORMAL_SPEED=60/3.6; // Velocidad media de referencia en conducción libre
 const FREE_TURBO_SPEED=80/3.6; // Velocidad media de referencia con turbo
-const FREE_TIME_SCALE=10; // El desplazamiento y el reloj se comprimen 10x en modo libre
+const FREE_TIME_SCALE=12; // Compresión arcade: un viaje de ~166 km dura ~13 min 50 s a 60 km/h
 let MAX_SPEED=BASE_MAX_SPEED;
 const ACCEL=5.0, BRAKE=8.0;
 const CLIENTS=[
@@ -382,8 +382,8 @@ function bindHold(id,setter){
  el.addEventListener('pointerdown',down);
  ['pointerup','pointercancel','pointerleave','lostpointercapture'].forEach(ev=>el.addEventListener(ev,up));
 }
-bindHold('accelerate',v=>accelerate=v);
-bindHold('brake',v=>brake=v);
+bindHold('accelerate',v=>{if(v&&autoDrive)setAutoDrive(false);accelerate=v;});
+bindHold('brake',v=>{if(v&&autoDrive)setAutoDrive(false);brake=v;});
 
 const drivingKeys=new Set(['ArrowUp','KeyW','ArrowDown','KeyS']);
 function isTypingTarget(el){return !!el&&(['INPUT','TEXTAREA','SELECT'].includes(el.tagName)||el.isContentEditable);}
@@ -391,8 +391,8 @@ window.addEventListener('keydown',e=>{
  if(isTypingTarget(e.target))return;
  if(!drivingKeys.has(e.code))return;
  e.preventDefault();
- if(e.code==='ArrowUp'||e.code==='KeyW')accelerate=true;
- if(e.code==='ArrowDown'||e.code==='KeyS')brake=true;
+ if(e.code==='ArrowUp'||e.code==='KeyW'){if(autoDrive)setAutoDrive(false);accelerate=true;}
+ if(e.code==='ArrowDown'||e.code==='KeyS'){if(autoDrive)setAutoDrive(false);brake=true;}
 });
 window.addEventListener('keyup',e=>{
  if(e.code==='ArrowUp'||e.code==='KeyW')accelerate=false;
@@ -407,6 +407,7 @@ function gameFrame(now){
  trafficAccumulator+=dt;if(trafficAccumulator>=.08){updateTraffic(trafficAccumulator);trafficAccumulator=0;}
  if(routeReady){elapsedSeconds+=dt;$('timer').textContent=String(Math.floor(elapsedSeconds/60)).padStart(2,'0')+':'+String(Math.floor(elapsedSeconds%60)).padStart(2,'0');}
  if(routeReady&&routeLength>0){
+  if(autoDrive)accelerate=true;
   if(accelerate){
    const freeModeCap=freeDriveMode?(Date.now()<turboUntil?FREE_TURBO_SPEED:FREE_NORMAL_SPEED):MAX_SPEED;
    speed=Math.min(freeModeCap,speed+ACCEL*dt);
@@ -437,7 +438,7 @@ function gameFrame(now){
   updateMission();
   if(progress>=routeLength-1&&speed>0)speed=0;
   if(progress>=routeLength-1&&speed<1.5){
-    speed=0;$('driveStatus').textContent=freeDriveMode?'LLEGASTE AL DESTINO · ELIGE OTRO':'HAS LLEGADO AL FINAL DE LA RUTA';
+    speed=0;accelerate=false;if(autoDrive){autoDrive=false;const ab=$('autoDrive');if(ab){ab.classList.remove('active');ab.innerHTML='🤖 <span>AUTO</span>';}}$('driveStatus').textContent=freeDriveMode?'LLEGASTE AL DESTINO · ELIGE OTRO':'HAS LLEGADO AL FINAL DE LA RUTA';
   }
  }else{$('speed').textContent='0';}
  requestAnimationFrame(gameFrame);
@@ -569,7 +570,7 @@ function consumeFuel(dt){
 }
 
 function economyTick(dt){
- gameClockMinutes=(gameClockMinutes+dt/6)%1440; // 10x: 10 minutos de juego por cada minuto real
+ gameClockMinutes=(gameClockMinutes+dt*(freeDriveMode?FREE_TIME_SCALE:10)/60)%1440; // Modo libre x12; reparto conserva su reloj x10
  const tint=$('nightTint');
  if(tint){
   const h=gameClockMinutes/60;
@@ -646,6 +647,7 @@ $('searchArea').addEventListener('click',searchArea);
 function setFreeDriveMode(enabled){
  if(enabled&&activeOrder){showToast('Termina el pedido activo antes de entrar al modo libre.');return;}
  freeDriveMode=enabled;
+ if(autoDrive)setAutoDrive(false);
  $('freeDrive').classList.toggle('active',enabled);
  $('freeDrive').innerHTML=enabled?'🧭 <span>LIBRE ACTIVO</span>':'🧭 <span>MODO LIBRE</span>';
  if(enabled){
@@ -675,6 +677,14 @@ function setFreeDriveMode(enabled){
  }
 }
 $('freeDrive').addEventListener('click',()=>setFreeDriveMode(!freeDriveMode));
+function setAutoDrive(enabled){
+ if(enabled&&(!routeReady||routePending)){showToast('Primero elige un destino y espera a que se calcule la ruta.');return;}
+ autoDrive=enabled;accelerate=enabled;brake=false;
+ const b=$('autoDrive');if(b){b.classList.toggle('active',enabled);b.innerHTML=enabled?'🤖 <span>AUTO ON</span>':'🤖 <span>AUTO</span>';}
+ showToast(enabled?'Conducción automática activada: el vehículo seguirá avanzando por la ruta.':'Conducción automática desactivada: controles manuales.');
+}
+$('autoDrive').addEventListener('click',()=>setAutoDrive(!autoDrive));
+$('offlineMap').addEventListener('click',()=>showToast('Mapa offline aún no disponible: la app abre sin conexión, pero calles y rutas necesitan internet.'));
 map.on('click',e=>{
  if(typeof placeEditorMode!=='undefined' && placeEditorMode){ if(selectedPlaceCategory.startsWith('move:')){const id=selectedPlaceCategory.slice(5),p=customPlaces.find(x=>x.id===id);if(p){p.lat=e.latlng.lat;p.lng=e.latlng.lng;persistPlaces();refreshPlaces();showToast('Negocio movido.');}placeEditorMode=false;return;} handlePlaceMapClick(e.latlng); return; }
  if(freeDriveMode){
