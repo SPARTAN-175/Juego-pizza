@@ -42,7 +42,7 @@ let lastFrame=performance.now(), toastTimer=null, offRouteFrames=0, lastRerouteA
 const BASE_MAX_SPEED=12.5; // 45 km/h al inicio
 const FREE_NORMAL_SPEED=60/3.6; // Velocidad media de referencia en conducción libre
 const FREE_TURBO_SPEED=80/3.6; // Velocidad media de referencia con turbo
-const FREE_TIME_SCALE=12; // Compresión arcade: un viaje de ~166 km dura ~13 min 50 s a 60 km/h
+const FREE_TIME_SCALE=12; // Solo AUTO comprime el desplazamiento para viajes largos; manual conserva km/h reales
 let MAX_SPEED=BASE_MAX_SPEED;
 const ACCEL=5.0, BRAKE=8.0;
 const CLIENTS=[
@@ -304,8 +304,8 @@ function updateFreeTravelEstimate(distanceMeters){
  if(!freeDriveMode||!Number.isFinite(distanceMeters)||distanceMeters<=0){el.textContent='';return;}
  const km=distanceMeters/1000;
  const normalReal=km/60*60, turboReal=km/80*60;
- const normalGame=normalReal/FREE_TIME_SCALE, turboGame=turboReal/FREE_TIME_SCALE;
- el.innerHTML=`<span>Tiempo de juego · normal <b>${formatTravelTime(normalGame)}</b></span><span>Tiempo de juego · turbo <b>${formatTravelTime(turboGame)}</b></span><small>Tiempo real de referencia: ${formatTravelTime(normalReal)} normal · ${formatTravelTime(turboReal)} turbo</small>`;
+ const autoNormal=normalReal/FREE_TIME_SCALE, autoTurbo=turboReal/FREE_TIME_SCALE;
+ el.innerHTML=`<span>Manual · 60 km/h <b>${formatTravelTime(normalReal)}</b></span><span>Manual con turbo · 80 km/h <b>${formatTravelTime(turboReal)}</b></span><span>AUTO · velocidad actual <b>${formatTravelTime(autoNormal)}</b></span><small>En AUTO el recorrido y el reloj avanzan ${FREE_TIME_SCALE} veces más rápido. Conducción manual usa distancia y tiempo reales.</small>`;
 }
 function requestRoute(start,destination,first=false,via=null){
  if(!routeControl){
@@ -420,7 +420,7 @@ function gameFrame(now){
   else if(speed<0)speed=Math.min(0,speed+2.2*dt);
   // La reversa recorre la misma ruta en sentido contrario; al soltarla,
   // la moto vuelve a detenerse suavemente.
-  const movementScale=freeDriveMode?FREE_TIME_SCALE:1;
+  const movementScale=freeDriveMode&&autoDrive?FREE_TIME_SCALE:1;
   progress=Math.max(0,Math.min(routeLength,progress+speed*dt*movementScale));
   const center=pointAt(progress);
   heading=bearingAt(progress)+(speed<-.15?180:0);
@@ -573,7 +573,8 @@ function consumeFuel(dt){
 }
 
 function economyTick(dt){
- gameClockMinutes=(gameClockMinutes+dt*(freeDriveMode?FREE_TIME_SCALE:10)/60)%1440; // Modo libre x12; reparto conserva su reloj x10
+ const clockScale=freeDriveMode?(autoDrive?FREE_TIME_SCALE:1):10;
+ gameClockMinutes=(gameClockMinutes+dt*clockScale/60)%1440; // Manual 1x; AUTO x12; reparto x10
  const tint=$('nightTint');
  if(tint){
   const h=gameClockMinutes/60;
@@ -683,6 +684,7 @@ $('freeDrive').addEventListener('click',()=>setFreeDriveMode(!freeDriveMode));
 function setAutoDrive(enabled){
  if(enabled&&(!routeReady||routePending)){showToast('Primero elige un destino y espera a que se calcule la ruta.');return;}
  autoDrive=enabled;accelerate=enabled;brake=false;
+ if(freeDriveMode&&routeLength>0)updateFreeTravelEstimate(routeLength);
  const b=$('autoDrive');if(b){b.classList.toggle('active',enabled);b.innerHTML=enabled?'🤖 <span>AUTO ON</span>':'🤖 <span>AUTO</span>';}
  showToast(enabled?'Conducción automática activada: el vehículo seguirá avanzando por la ruta.':'Conducción automática desactivada: controles manuales.');
 }

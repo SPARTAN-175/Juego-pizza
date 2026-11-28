@@ -109,3 +109,13 @@ AJUSTES 2.0 — CORRECCIÓN DE INTERFAZ Y LECTURA DE INDICADORES
 - Se actualizó el título y la caché del service worker a 2.0 para evitar reutilizar la interfaz anterior.
 
 Validación 2.0: pendiente de prueba visual en navegador real.
+
+
+AJUSTE 2.1 — VELOCIDAD MANUAL Y AUTO INDEPENDIENTES
+- En modo libre manual, la velocidad indicada corresponde al avance real por la ruta: 60 km/h normal y hasta 80 km/h con turbo. No se aplica compresión x12 al desplazamiento.
+- En modo AUTO se conserva la compresión x12 de la versión anterior para viajes largos; la velocidad del velocímetro sigue mostrando la velocidad del vehículo y no la velocidad comprimida del mapa.
+- El reloj del mundo avanza a tiempo normal en conducción manual, x12 en AUTO y x10 durante el modo reparto.
+- El panel ETA distingue conducción manual de conducción automática.
+- Para cancelar AUTO basta con pulsar el botón AUTO o usar acelerar/frenar manualmente.
+
+Validación 2.1: comprobación de sintaxis JavaScript y de integridad del ZIP; no se realizó prueba visual en navegador real.
