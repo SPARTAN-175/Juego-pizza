@@ -40,6 +40,9 @@ let freeDriveMode=false, freeDestination=null, freeDestinationMarker=null, lastT
 let accelerate=false, brake=false;
 let lastFrame=performance.now(), toastTimer=null, offRouteFrames=0, lastRerouteAt=0, trafficAccumulator=0;
 const BASE_MAX_SPEED=12.5; // 45 km/h al inicio
+const FREE_NORMAL_SPEED=30.225/3.6; // 30.225 km/h: 60.45 km en 2 h simuladas
+const FREE_TURBO_SPEED=40.3/3.6; // 40.3 km/h: 60.45 km en 1.5 h simuladas
+const FREE_TIME_SCALE=10; // Compresión 10x: 12 min reales equivalen a 2 h simuladas a velocidad normal
 let MAX_SPEED=BASE_MAX_SPEED;
 const ACCEL=5.0, BRAKE=8.0;
 const CLIENTS=[
@@ -390,7 +393,7 @@ function gameFrame(now){
  if(routeReady){elapsedSeconds+=dt;$('timer').textContent=String(Math.floor(elapsedSeconds/60)).padStart(2,'0')+':'+String(Math.floor(elapsedSeconds%60)).padStart(2,'0');}
  if(routeReady&&routeLength>0){
   if(accelerate){
-   const freeModeCap=freeDriveMode?(Date.now()<turboUntil?100/3.6:70/3.6):MAX_SPEED;
+   const freeModeCap=freeDriveMode?(Date.now()<turboUntil?FREE_TURBO_SPEED:FREE_NORMAL_SPEED):MAX_SPEED;
    speed=Math.min(freeModeCap,speed+ACCEL*dt);
   }
   else if(brake)speed=Math.max(-2.5,speed-BRAKE*dt);
@@ -398,7 +401,8 @@ function gameFrame(now){
   else if(speed<0)speed=Math.min(0,speed+2.2*dt);
   // La reversa recorre la misma ruta en sentido contrario; al soltarla,
   // la moto vuelve a detenerse suavemente.
-  progress=Math.max(0,Math.min(routeLength,progress+speed*dt));
+  const movementScale=freeDriveMode?FREE_TIME_SCALE:1;
+  progress=Math.max(0,Math.min(routeLength,progress+speed*dt*movementScale));
   const center=pointAt(progress);
   heading=bearingAt(progress)+(speed<-.15?180:0);
   playerPos=center;updateRouteProgressLine();
@@ -521,7 +525,7 @@ function activateTurbo(){
  if(fuel<8&&!(fuel<=0&&reserveActive&&reserveFuel>0)){showToast('Necesitas combustible para usar el turbo.');return;}
  if(freeDriveMode){
   turboUntil=now+600000;turboCooldown=now+615000;
-  showToast('🚀 TURBO LIBRE: 10 minutos a un máximo de 100 km/h. Recarga en 15 segundos al terminar.');
+  showToast('🚀 TURBO LIBRE: 10 minutos a un máximo de 40.3 km/h simulados. Recarga en 15 segundos al terminar.');
  }else{
   turboUntil=now+60000;turboCooldown=now+75000;MAX_SPEED=Math.max(MAX_SPEED,17.5);
   showToast('¡Turbo activado por 1 minuto! Al terminar, se recarga en 15 segundos.');
@@ -542,7 +546,7 @@ function consumeFuel(dt){
 }
 
 function economyTick(dt){
- gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;
+ gameClockMinutes=(gameClockMinutes+dt/6)%1440; // 10x: 10 minutos de juego por cada minuto real
  const tint=$('nightTint');
  if(tint){
   const h=gameClockMinutes/60;

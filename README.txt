@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR — STREET EDITION 1.5
+PIZZA DELIVERY SIMULATOR — STREET EDITION 1.7
 
 Instalación: descomprime y sube todos los archivos a la raíz del repositorio de GitHub Pages. En el teléfono, cierra por completo la PWA anterior y vuelve a abrirla para que el nuevo service worker sustituya la caché anterior.
 
@@ -51,3 +51,25 @@ AJUSTES 1.5 — MODO LIBRE Y HORARIO
 - Turbo en modo libre dura 10 minutos y, al terminar, inicia una recarga de 15 segundos.
 - En modo normal se conserva la configuración anterior: velocidad y turbo actuales sin cambios.
 - Horario del ciclo: tarde desde 16:30, iluminación de faros y postes desde 18:30, amanecer desde 06:00 y salida de la noche a las 06:00.
+
+
+AJUSTES 1.6 — TIEMPO Y DISTANCIA EN MODO LIBRE
+- La velocidad normal del modo libre queda en 30.225 km/h simulados.
+- El turbo del modo libre queda en 40.3 km/h simulados; conserva 10 minutos de activación y 15 segundos de recarga.
+- La simulación de desplazamiento en modo libre avanza 60 segundos de recorrido por cada segundo real. Así, 60.45 km representan aproximadamente 2 minutos reales en normal y 1 minuto 30 segundos reales con turbo, si se mantiene la velocidad objetivo.
+- El reloj del mundo avanza 1 minuto de juego por segundo real (escala 60x). Un trayecto de 90 segundos representa 90 minutos de mundo; uno de 120 segundos representa 2 horas.
+- La conducción del modo de entregas se conserva sin acelerar su desplazamiento.
+- La aceleración inicial, frenadas, tráfico, paradas y recalculados pueden modificar ligeramente el tiempo final; las cifras son objetivos teóricos en ruta continua.
+
+Validación 1.6: `node --check app.js` y prueba de integridad del ZIP. No se realizó prueba de juego en navegador real.
+
+
+AJUSTES 1.7 — COMPRESIÓN MODERADA DEL TIEMPO EN MODO LIBRE
+- Se reduce la escala de desplazamiento del modo libre de 60x a 10x para evitar el efecto de velocidad extrema de la versión 1.6.
+- Se ajusta el reloj del mundo a 10x: avanza 10 minutos simulados por cada minuto real.
+- Con las velocidades simuladas de 30.225 km/h normal y 40.3 km/h turbo, una ruta continua de 60.45 km representa aproximadamente 12 minutos reales en normal (2 horas simuladas) y 9 minutos reales en turbo (1.5 horas simuladas).
+- El velocímetro muestra la velocidad simulada configurada; el desplazamiento geográfico está comprimido 10x para que los trayectos largos no requieran el tiempo completo de la vida real.
+- Se conserva el mapa completo y no se modifica la conducción del modo de entregas.
+- El turbo libre conserva 10 minutos de activación y 15 segundos de recarga.
+
+Validación 1.7: `node --check app.js` y prueba de integridad del ZIP. No se realizó una prueba de juego en navegador real. La duración real puede variar por aceleración, frenadas, tráfico, paradas y recalculados de ruta.
