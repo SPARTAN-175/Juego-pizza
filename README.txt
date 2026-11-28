@@ -98,3 +98,14 @@ ACTUALIZACIÓN STREET EDITION 1.9
 - Nuevo botón AUTO: activa el avance automático por la ruta calculada. Al llegar al destino se desactiva; al apagarlo regresan los controles manuales.
 - Se reorganizaron los controles para reducir superposiciones en móvil y escritorio.
 - El botón OFFLINE informa del estado real: por ahora se guarda la aplicación PWA, pero los mosaicos del mapa, geocodificación y rutas siguen dependiendo de internet. No se anuncia descarga cartográfica offline porque esta versión aún no incorpora un paquete de mapas y motor de rutas local.
+
+
+AJUSTES 2.0 — CORRECCIÓN DE INTERFAZ Y LECTURA DE INDICADORES
+- Se eliminó el bloque vacío “Posición en carril”, que ocupaba espacio y empujaba los controles de conducción hacia la derecha.
+- En escritorio, los controles de conducción quedan abajo a la izquierda y los accesos de pedidos/negocios/pizzería/turbo abajo a la derecha, en zonas independientes.
+- Se ampliaron los botones y los paneles centrales en monitores; en móvil se mantiene una distribución compacta.
+- Los indicadores económicos ahora muestran sus nombres y explican su significado mediante etiquetas emergentes.
+- El ETA ahora muestra segundos cuando el recorrido dura menos de un minuto; ya no presenta “0 min” para recorridos cortos. También diferencia tiempo simulado y referencia de tiempo real.
+- Se actualizó el título y la caché del service worker a 2.0 para evitar reutilizar la interfaz anterior.
+
+Validación 2.0: pendiente de prueba visual en navegador real.

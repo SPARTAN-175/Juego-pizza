@@ -292,9 +292,12 @@ function setNightLighting(isNight){
 }
 
 function formatTravelTime(minutes){
- const total=Math.max(0,Math.round(minutes));
- const h=Math.floor(total/60),m=total%60;
- return h?`${h} h ${String(m).padStart(2,'0')} min`:`${m} min`;
+ // Redondear hacia arriba evita mostrar 0 min en trayectos cortos.
+ const totalSeconds=Math.max(0,Math.ceil(Number(minutes)*60));
+ if(totalSeconds<60)return `${totalSeconds} s`;
+ const totalMinutes=Math.ceil(totalSeconds/60);
+ const h=Math.floor(totalMinutes/60),m=totalMinutes%60;
+ return h?`${h} h ${String(m).padStart(2,'0')} min`:`${totalMinutes} min`;
 }
 function updateFreeTravelEstimate(distanceMeters){
  const el=$('travelEstimate');if(!el)return;
@@ -302,7 +305,7 @@ function updateFreeTravelEstimate(distanceMeters){
  const km=distanceMeters/1000;
  const normalReal=km/60*60, turboReal=km/80*60;
  const normalGame=normalReal/FREE_TIME_SCALE, turboGame=turboReal/FREE_TIME_SCALE;
- el.innerHTML=`<span>ETA normal: <b>${formatTravelTime(normalGame)}</b></span><span>Turbo: <b>${formatTravelTime(turboGame)}</b></span><small>Equivalente real: ${formatTravelTime(normalReal)} / ${formatTravelTime(turboReal)}</small>`;
+ el.innerHTML=`<span>Tiempo de juego · normal <b>${formatTravelTime(normalGame)}</b></span><span>Tiempo de juego · turbo <b>${formatTravelTime(turboGame)}</b></span><small>Tiempo real de referencia: ${formatTravelTime(normalReal)} normal · ${formatTravelTime(turboReal)} turbo</small>`;
 }
 function requestRoute(start,destination,first=false,via=null){
  if(!routeControl){
@@ -463,7 +466,7 @@ function featureRoot(){return $('featureRoot');}
 function panel(html){const root=featureRoot();root.querySelector('.feature-panel')?.remove();const el=document.createElement('section');el.className='feature-panel';el.innerHTML=html;root.appendChild(el);}
 function closePanel(){featureRoot().querySelector('.feature-panel')?.remove();}
 function initFeatureUI(){
- const root=featureRoot();root.innerHTML=`<div id="nightTint"></div><div class="economy-hud"><span class="economy-chip">💵 $<b id="walletVal">350</b></span><span class="economy-chip">⛽ <b id="fuelVal">78</b>%</span><span class="economy-chip">🍔 <b id="hungerVal">82</b>%</span><span class="economy-chip">⚡ <b id="energyVal">90</b>%</span><span class="economy-chip">🛵 <b id="healthVal">100</b>%</span><span class="economy-chip">🕒 <b id="clockVal">08:00</b></span></div><div class="feature-dock"><button class="feature-btn" id="ordersBtn">📦 PEDIDOS</button><button class="feature-btn" id="placesBtn">🏪 NEGOCIOS</button><button class="feature-btn" id="pizzeriaBtn">🍕 PIZZERÍA</button><button class="feature-btn" id="turboBtn">⚡ TURBO</button><button class="feature-btn" id="reserveBtn" style="display:none">⛽ RESERVA</button></div>`;
+ const root=featureRoot();root.innerHTML=`<div id="nightTint"></div><div class="economy-hud"><span class="economy-chip" title="Dinero disponible">💵 SALDO <b id="walletVal">350</b></span><span class="economy-chip" title="Combustible restante">⛽ GASOLINA <b id="fuelVal">78</b>%</span><span class="economy-chip" title="Necesidad de comida; disminuye al conducir">🍔 HAMBRE <b id="hungerVal">82</b>%</span><span class="economy-chip" title="Energía del conductor">⚡ ENERGÍA <b id="energyVal">90</b>%</span><span class="economy-chip" title="Estado del vehículo">🛵 MOTO <b id="healthVal">100</b>%</span><span class="economy-chip" title="Hora dentro del mundo del juego">🕒 HORA <b id="clockVal">08:00</b></span></div><div class="feature-dock"><button class="feature-btn" id="ordersBtn">📦 PEDIDOS</button><button class="feature-btn" id="placesBtn">🏪 NEGOCIOS</button><button class="feature-btn" id="pizzeriaBtn">🍕 PIZZERÍA</button><button class="feature-btn" id="turboBtn">⚡ TURBO</button><button class="feature-btn" id="reserveBtn" style="display:none">⛽ RESERVA</button></div>`;
  $('ordersBtn').onclick=showOrdersPanel;$('placesBtn').onclick=showPlacesPanel;$('pizzeriaBtn').onclick=showPizzeriaPanel;$('turboBtn').onclick=activateTurbo;$('reserveBtn').onclick=activateReserve;
 }
 function updateEconomyHUD(){[['walletVal',Math.floor(wallet)],['fuelVal',Math.floor(fuel)],['hungerVal',Math.floor(hunger)],['energyVal',Math.floor(energy)],['healthVal',Math.floor(vehicleHealth)],['clockVal',String(Math.floor(gameClockMinutes/60)%24).padStart(2,'0')+':'+String(Math.floor(gameClockMinutes%60)).padStart(2,'0')]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});const rb=$('reserveBtn');if(rb){rb.style.display=fuel<=0?'block':'none';rb.disabled=reserveFuel<=0||reserveActive;rb.textContent=reserveActive?`⛽ RESERVA ACTIVA ${Math.ceil(reserveFuel)}%`:`⛽ RESERVA DISPONIBLE ${Math.ceil(reserveFuel)}%`;}}
