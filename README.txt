@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR — STREET EDITION 1.3
+PIZZA DELIVERY SIMULATOR — STREET EDITION 1.4
 
 Instalación: descomprime y sube todos los archivos a la raíz del repositorio de GitHub Pages. En el teléfono, cierra por completo la PWA anterior y vuelve a abrirla para que el nuevo service worker sustituya la caché anterior.
 
@@ -36,3 +36,12 @@ AJUSTES 1.3 — TECLADO, VELOCIDAD, CONSUMO Y RESPONSIVIDAD
 - Consumo de gasolina y hambre/energía ajustado para que sea perceptible mientras el vehículo se mueve.
 - La reserva del 8% se activa automáticamente cuando el tanque principal llega a cero y se consume después.
 - Controles y paneles más grandes en escritorio; los estilos compactos existentes se conservan en móviles.
+
+AJUSTES 1.4 — NOCHE, RUTA Y CRECIMIENTO DEL NEGOCIO
+- Faros de tráfico visibles por la noche y alumbrado de postes distribuidos a lo largo de la ruta activa.
+- La ruta verde se dibuja dinámicamente desde la posición del jugador hasta el destino y se acorta conforme avanza.
+- Consumo más perceptible de combustible (0.035%/s), hambre (0.035%/s), energía (0.02%/s) y condición del vehículo mientras se conduce.
+- Controles superiores, HUD y paneles ampliados en escritorio; reglas compactas conservadas para móvil.
+- Módulo de pizzería propia: compra del local por $12,000, contratación de repartidores por $2,500.
+- Cada repartidor simula entregas en ciclos de 90 segundos: ventas $220, costo operativo $70, utilidad $150 por repartidor y ciclo. El saldo, ventas y entregas se guardan localmente.
+- Los repartidores aparecen como marcadores móviles sobre la ruta activa del juego; la simulación de rutas autónomas independientes y recogida de pedidos reales es una fase posterior.

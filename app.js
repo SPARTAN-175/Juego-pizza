@@ -30,6 +30,10 @@ let playerPos=origin;
 let playerMarker=null, customerMarkers=[], routeControl=null, routeCoords=[], routeCumulative=[], detourMarker=null;
 let routeLength=0, progress=0, speed=0, heading=0, laneOffset=0;
 let targetIndex=0, deliveries=0, routeReady=false, routePending=false;
+let routeProgressLine=null, routeOutlineLine=null, streetLampMarkers=[], lastNightLighting=null;
+let pizzeriaOwned=false, hiredDrivers=0, businessIncomeTimer=0, fleetMarkers=[];
+let businessStats={revenue:0,deliveries:0};
+
 let level=1, elapsedSeconds=0;
 let followPlayer=true, mode='game';
 let freeDriveMode=false, freeDestination=null, freeDestinationMarker=null, lastTrafficRefreshPos=null, trafficRefreshBusy=false;
@@ -68,6 +72,7 @@ const carSvg=`<svg class="traffic-art" viewBox="0 0 28 46" xmlns="http://www.w3.
  <rect x="5" y="8" width="18" height="11" rx="3" fill="#9ed1dc"/>
  <rect x="5" y="27" width="18" height="10" rx="3" fill="#9ed1dc"/>
  <rect x="2" y="5" width="3" height="7" rx="1" fill="#ffe7a2"/><rect x="23" y="5" width="3" height="7" rx="1" fill="#ffe7a2"/>
+ <path class="headlight-beam" d="M4 7 L-1 -2 L7 -2 L7 7Z" fill="#ffe9a1" opacity=".45"/><path class="headlight-beam" d="M24 7 L21 -2 L29 -2 L29 7Z" fill="#ffe9a1" opacity=".45"/>
  <rect x="2" y="34" width="3" height="7" rx="1" fill="#fa6558"/><rect x="23" y="34" width="3" height="7" rx="1" fill="#fa6558"/>
  <path d="M7 21 H21 V25 H7Z" fill="#52636a"/>
  </svg>`;
@@ -248,6 +253,41 @@ function routeFailed(message){
  $('deliver').disabled=true;
  showToast(message||'No se pudo calcular la ruta. Revisa tu conexión.');
 }
+
+function updateRouteProgressLine(){
+ if(!routeReady||!routeCoords.length)return;
+ let idx=0;while(idx<routeCumulative.length-1&&routeCumulative[idx]<progress)idx++;
+ const remaining=[pointAt(progress),...routeCoords.slice(idx+1)];
+ if(!routeProgressLine){
+  routeOutlineLine=L.polyline(remaining,{color:'#ffffff',weight:10,opacity:.88,lineCap:'round',lineJoin:'round',interactive:false}).addTo(map);
+  routeProgressLine=L.polyline(remaining,{color:'#13b981',weight:6,opacity:1,lineCap:'round',lineJoin:'round',interactive:false}).addTo(map);
+ }else{routeOutlineLine.setLatLngs(remaining);routeProgressLine.setLatLngs(remaining);}
+}
+function clearStreetLamps(){
+ streetLampMarkers.forEach(m=>map.removeLayer(m));streetLampMarkers=[];
+}
+function placeStreetLamps(){
+ clearStreetLamps();
+ if(!routeCoords.length)return;
+ const spacing=95;
+ for(let at=35;at<routeLength;at+=spacing){
+  const p=pointAt(at);
+  const b=bearingAt(at);
+  const side=(Math.floor(at/spacing)%2===0?1:-1);
+  const polePos=offsetPoint(p,b,side*7);
+  const marker=L.marker(polePos,{interactive:false,zIndexOffset:80,icon:icon('<div class="streetlamp"><span class="lamp-glow"></span><span class="lamp-post"></span><span class="lamp-head"></span></div>','streetlamp-marker',[34,54],[17,48])}).addTo(map);
+  streetLampMarkers.push(marker);
+ }
+}
+function setNightLighting(isNight){
+ const container=map.getContainer();
+ if(lastNightLighting===isNight)return;lastNightLighting=isNight;
+ container.classList.toggle('night-driving',isNight);
+ streetLampMarkers.forEach(m=>{
+  const el=m.getElement();if(el)el.classList.toggle('lamp-on',isNight);
+ });
+}
+
 function requestRoute(start,destination,first=false,via=null){
  if(!routeControl){
   routeControl=L.Routing.control({
@@ -255,7 +295,7 @@ function requestRoute(start,destination,first=false,via=null){
    router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1',profile:'driving',timeout:30000}),
    show:false,collapsible:false,addWaypoints:false,draggableWaypoints:false,
    routeWhileDragging:false,fitSelectedRoutes:false,createMarker:()=>null,
-   lineOptions:{styles:[{color:'#ffffff',weight:10,opacity:.9},{color:'#13b981',weight:6,opacity:1}]}
+   lineOptions:{styles:[{color:'#ffffff',weight:10,opacity:0},{color:'#13b981',weight:6,opacity:0}]}
   }).addTo(map);
   routeControl.on('routesfound',e=>{
    const r=e.routes?.[0];if(!r?.coordinates?.length){routeFailed('El servicio no devolvió una ruta.');return;}
@@ -268,10 +308,12 @@ function requestRoute(start,destination,first=false,via=null){
     customerMarkers[targetIndex].setLatLng(routeCoords[routeCoords.length-1]);
    }
    buildCumulative(routeCoords);
+   if(routeProgressLine){map.removeLayer(routeProgressLine);routeProgressLine=null;}
+   if(routeOutlineLine){map.removeLayer(routeOutlineLine);routeOutlineLine=null;}
    routeReady=true;routePending=false;progress=0;speed=0;laneOffset=0;
    // La primera coordenada viene ajustada a la red vial por el motor de rutas.
    playerPos=routeCoords[0];heading=bearingAt(1);
-   updateRider();
+   updateRider();updateRouteProgressLine();placeStreetLamps();refreshFleetMarkers();
    const km=(r.summary.totalDistance/1000).toFixed(2);
    $('routeKm').textContent=`${km} km`;
    $('routeStatus').textContent=freeDriveMode?'RUTA LIBRE · OSRM':'RUTA POR CALLES';
@@ -356,7 +398,7 @@ function gameFrame(now){
   progress=Math.max(0,Math.min(routeLength,progress+speed*dt));
   const center=pointAt(progress);
   heading=bearingAt(progress)+(speed<-.15?180:0);
-  playerPos=center;
+  playerPos=center;updateRouteProgressLine();
   if(!routePending&&targetIndex<CLIENTS.length&&now-lastRerouteAt>5000){
    if(distance(playerPos,center)>8)offRouteFrames++;else offRouteFrames=0;
    if(offRouteFrames>=3){offRouteFrames=0;lastRerouteAt=now;routeToCurrentCustomer();showToast('Ruta actualizada hacia el cliente.');}
@@ -398,11 +440,50 @@ function featureRoot(){return $('featureRoot');}
 function panel(html){const root=featureRoot();root.querySelector('.feature-panel')?.remove();const el=document.createElement('section');el.className='feature-panel';el.innerHTML=html;root.appendChild(el);}
 function closePanel(){featureRoot().querySelector('.feature-panel')?.remove();}
 function initFeatureUI(){
- const root=featureRoot();root.innerHTML=`<div id="nightTint"></div><div class="economy-hud"><span class="economy-chip">💵 $<b id="walletVal">350</b></span><span class="economy-chip">⛽ <b id="fuelVal">78</b>%</span><span class="economy-chip">🍔 <b id="hungerVal">82</b>%</span><span class="economy-chip">⚡ <b id="energyVal">90</b>%</span><span class="economy-chip">🛵 <b id="healthVal">100</b>%</span><span class="economy-chip">🕒 <b id="clockVal">08:00</b></span></div><div class="feature-dock"><button class="feature-btn" id="ordersBtn">📦 PEDIDOS</button><button class="feature-btn" id="placesBtn">🏪 NEGOCIOS</button><button class="feature-btn" id="turboBtn">⚡ TURBO</button><button class="feature-btn" id="reserveBtn" style="display:none">⛽ RESERVA</button></div>`;
- $('ordersBtn').onclick=showOrdersPanel;$('placesBtn').onclick=showPlacesPanel;$('turboBtn').onclick=activateTurbo;$('reserveBtn').onclick=activateReserve;
+ const root=featureRoot();root.innerHTML=`<div id="nightTint"></div><div class="economy-hud"><span class="economy-chip">💵 $<b id="walletVal">350</b></span><span class="economy-chip">⛽ <b id="fuelVal">78</b>%</span><span class="economy-chip">🍔 <b id="hungerVal">82</b>%</span><span class="economy-chip">⚡ <b id="energyVal">90</b>%</span><span class="economy-chip">🛵 <b id="healthVal">100</b>%</span><span class="economy-chip">🕒 <b id="clockVal">08:00</b></span></div><div class="feature-dock"><button class="feature-btn" id="ordersBtn">📦 PEDIDOS</button><button class="feature-btn" id="placesBtn">🏪 NEGOCIOS</button><button class="feature-btn" id="pizzeriaBtn">🍕 PIZZERÍA</button><button class="feature-btn" id="turboBtn">⚡ TURBO</button><button class="feature-btn" id="reserveBtn" style="display:none">⛽ RESERVA</button></div>`;
+ $('ordersBtn').onclick=showOrdersPanel;$('placesBtn').onclick=showPlacesPanel;$('pizzeriaBtn').onclick=showPizzeriaPanel;$('turboBtn').onclick=activateTurbo;$('reserveBtn').onclick=activateReserve;
 }
 function updateEconomyHUD(){[['walletVal',Math.floor(wallet)],['fuelVal',Math.floor(fuel)],['hungerVal',Math.floor(hunger)],['energyVal',Math.floor(energy)],['healthVal',Math.floor(vehicleHealth)],['clockVal',String(Math.floor(gameClockMinutes/60)%24).padStart(2,'0')+':'+String(Math.floor(gameClockMinutes%60)).padStart(2,'0')]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});const rb=$('reserveBtn');if(rb){rb.style.display=fuel<=0?'block':'none';rb.disabled=reserveFuel<=0||reserveActive;rb.textContent=reserveActive?`⛽ RESERVA ACTIVA ${Math.ceil(reserveFuel)}%`:`⛽ RESERVA DISPONIBLE ${Math.ceil(reserveFuel)}%`;}}
 function money(n){return '$'+Math.round(n).toLocaleString('es-MX');}
+
+function persistBusiness(){try{localStorage.setItem('pds13_business',JSON.stringify({pizzeriaOwned,hiredDrivers,businessStats}));}catch(e){}}
+function loadBusiness(){try{const b=JSON.parse(localStorage.getItem('pds13_business')||'{}');pizzeriaOwned=!!b.pizzeriaOwned;hiredDrivers=Math.max(0,Number(b.hiredDrivers)||0);businessStats=b.businessStats||businessStats;}catch(e){}}
+function courierIcon(){return icon('<div class="fleet-scooter">🛵</div>','fleet-marker',[30,30],[15,15]);}
+function refreshFleetMarkers(){
+ fleetMarkers.forEach(m=>map.removeLayer(m));fleetMarkers=[];
+ if(!pizzeriaOwned||hiredDrivers<=0||!routeCoords.length)return;
+ for(let i=0;i<hiredDrivers;i++){
+  const marker=L.marker(pointAt((routeLength/(hiredDrivers+1))*(i+1)),{icon:courierIcon(),zIndexOffset:420,interactive:false}).addTo(map);
+  fleetMarkers.push(marker);
+ }
+}
+function updateFleet(dt){
+ if(!pizzeriaOwned||!hiredDrivers)return;
+ if(routeReady&&routeLength>100){
+  fleetMarkers.forEach((m,i)=>{const offset=(progress+(i+1)*routeLength/(hiredDrivers+1)+businessIncomeTimer*3)%routeLength;m.setLatLng(pointAt(offset));});
+ }
+ businessIncomeTimer+=dt;
+ if(businessIncomeTimer>=90){
+  businessIncomeTimer=0;
+  const completed=hiredDrivers;
+  const gross=completed*220;
+  const wages=completed*70;
+  const net=gross-wages;
+  wallet+=net;cashReserve+=net;businessStats.revenue+=gross;businessStats.deliveries+=completed;
+  persistBusiness();updateEconomyHUD();
+  showToast(`🏪 Repartidores: ${completed} entrega(s), ventas ${money(gross)}, gastos ${money(wages)}, ganancia ${money(net)}.`);
+ }
+}
+function showPizzeriaPanel(){
+ const cost=12000,driverCost=2500;
+ panel(`<h3>🍕 Mi pizzería</h3>
+ <div class="feature-card">Estado: <b>${pizzeriaOwned?'Establecimiento propio':'Todavía no tienes local'}</b><br>Saldo: <b>${money(wallet)}</b><br>Repartidores contratados: <b>${hiredDrivers}</b><br>Ventas acumuladas: ${money(businessStats.revenue)}<br>Entregas de empleados: ${businessStats.deliveries}</div>
+ ${!pizzeriaOwned?`<p>Compra tu primer establecimiento para empezar a operar como dueño. Costo: <b>${money(cost)}</b>.</p><button class="feature-btn primary" ${wallet<cost?'disabled':''} onclick="window.buyPizzeria()">COMPRAR PIZZERÍA</button>`:`<p>Contrata repartidores. Cada uno realiza entregas simuladas y genera ingresos para el negocio. Cada ciclo se contabilizan ventas y pago operativo.</p><p>Contratar un repartidor cuesta <b>${money(driverCost)}</b>.</p><button class="feature-btn primary" ${wallet<driverCost?'disabled':''} onclick="window.hireCourier()">CONTRATAR REPARTIDOR</button><button class="feature-btn" onclick="window.refreshFleetMarkers()">MOSTRAR REPARTIDORES EN MAPA</button>`}
+ <div class="feature-actions"><button class="feature-btn" onclick="window.closeFeaturePanel()">Cerrar</button></div>`);
+}
+function buyPizzeria(){const cost=12000;if(pizzeriaOwned)return;if(wallet<cost){showToast(`Necesitas ${money(cost-wallet)} más para comprar el local.`);return;}wallet-=cost;pizzeriaOwned=true;persistBusiness();updateEconomyHUD();showToast('¡Ya tienes tu propia pizzería!');showPizzeriaPanel();}
+function hireCourier(){const cost=2500;if(!pizzeriaOwned)return;if(wallet<cost){showToast('No tienes suficiente dinero para contratar.');return;}wallet-=cost;hiredDrivers++;persistBusiness();updateEconomyHUD();refreshFleetMarkers();showToast('Nuevo repartidor contratado.');showPizzeriaPanel();}
+
 function showOrdersPanel(){panel(`<h3>📦 Centro de pedidos</h3><p>Los pedidos externos aparecen automáticamente de manera aleatoria. Puedes aceptarlos o rechazarlos; mientras tanto, tus entregas normales continúan.</p><div class="feature-card">Saldo disponible: <b>${money(wallet)}</b><br>${activeOrder?`Pedido activo: ${escapeHTML(activeOrder.title)} · Etapa: ${activeOrder.phase==='store'?'Ir a la tienda':'Entregar al cliente'}`:'No tienes pedido externo activo.'}</div><div class="feature-actions"><button class="feature-btn" onclick="window.closeFeaturePanel()">Cerrar</button></div>`);}
 function scheduleRandomOrder(){clearTimeout(randomOrderTimer);const delay=(45+Math.random()*105)*1000;randomOrderTimer=setTimeout(()=>{if(!activeOrder&&!incomingOrder&&mode==='game')generateOrder(true);scheduleRandomOrder();},delay);}
 function generateOrder(automatic=false){if(incomingOrder||activeOrder){if(!automatic)showToast('Termina o rechaza el pedido actual primero.');return;}const availableStores=customPlaces.filter(p=>p.enabled!==false&&p.category==='store');
@@ -435,7 +516,7 @@ function activateTurbo(){const now=Date.now();if(now<turboCooldown){showToast(`T
 function activateReserve(){if(fuel>0){showToast('La reserva solo se habilita cuando el tanque principal se agota.');return;}if(reserveActive){showToast('La reserva ya está activa.');return;}if(reserveFuel<=0){showToast('La reserva también se agotó. Necesitas asistencia.');return;}reserveActive=true;showToast('Reserva activada: conduce despacio hasta una gasolinera.');}
 function consumeFuel(dt){
  const turboFactor=Date.now()<turboUntil?1.65:1;
- const rate=dt*.0065*turboFactor;
+ const rate=dt*.035*turboFactor;
  if(fuel>0){
   fuel=Math.max(0,fuel-rate);
   if(fuel===0&&!reserveActive&&reserveFuel>0){reserveActive=true;showToast('⛽ Tanque principal vacío: reserva del 8% activada automáticamente. Busca una gasolinera.');}
@@ -446,14 +527,14 @@ function consumeFuel(dt){
  }else if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;showToast('Sin combustible. Necesitas asistencia.');}
 }
 
-function economyTick(dt){gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;const tint=$('nightTint');if(tint){const h=gameClockMinutes/60;const night=h<5.5||h>20.5; tint.style.background=night?'rgba(8,18,43,.43)':(h<7||h>18.5?'rgba(235,139,65,.13)':'transparent');}if(routeReady&&Math.abs(speed)>.5){consumeFuel(dt);hunger=Math.max(0,hunger-dt*.008);energy=Math.max(0,energy-dt*.0045);}if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;}if(Date.now()>turboUntil&&MAX_SPEED>BASE_MAX_SPEED+(level-1)*.8)MAX_SPEED=Math.min(19,BASE_MAX_SPEED+(level-1)*.8);updateEconomyHUD();}
+function economyTick(dt){gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;const tint=$('nightTint');if(tint){const h=gameClockMinutes/60;const night=h<5.5||h>20.5;setNightLighting(night); tint.style.background=night?'rgba(8,18,43,.43)':(h<7||h>18.5?'rgba(235,139,65,.13)':'transparent');}updateFleet(dt);if(routeReady&&Math.abs(speed)>.5){consumeFuel(dt);hunger=Math.max(0,hunger-dt*.035);energy=Math.max(0,energy-dt*.02);vehicleHealth=Math.max(0,vehicleHealth-dt*.001);}if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;}if(Date.now()>turboUntil&&MAX_SPEED>BASE_MAX_SPEED+(level-1)*.8)MAX_SPEED=Math.min(19,BASE_MAX_SPEED+(level-1)*.8);updateEconomyHUD();}
 // La tarjeta de misión existente también sirve para completar pedidos externos.
 const baseUpdateMission=updateMission;
 updateMission=function(){if(activeOrder){$('missionName').textContent=activeOrder.phase==='store'?'Ir a la tienda':'Entregar al cliente';$('missionDistance').textContent=`${activeOrder.customer} · ${Math.round(distance(playerPos,activeOrder.destination))} m`; $('routeStatus').textContent='PEDIDO EXTERNO';$('routeKm').textContent=activeOrder.kind==='shopping'?(activeOrder.phase==='store'?'COMPRA':'ENTREGA'):'PIZZA';$('deliver').textContent=activeOrder.phase==='store'?'CONFIRMAR COMPRA':'COBRAR PEDIDO';$('deliver').disabled=!destinationReached(160);return;}$('deliver').textContent='ENTREGAR PIZZA';baseUpdateMission();};
 const baseFinishDelivery=finishDelivery;
 finishDelivery=function(){if(activeOrder){completeActiveOrder();return;}baseFinishDelivery();};
-window.generateOrder=generateOrder;window.acceptOrder=acceptOrder;window.rejectOrder=rejectOrder;window.closeFeaturePanel=closePanel;window.showPlacesPanel=showPlacesPanel;window.startPlacePlacement=startPlacePlacement;window.saveNewPlace=saveNewPlace;window.listCustomPlaces=listCustomPlaces;window.togglePlace=togglePlace;window.deletePlace=deletePlace;window.editPlace=editPlace;window.savePlaceEdit=savePlaceEdit;window.movePlace=movePlace;window.openPlacePanel=openPlacePanel;window.buyFuel=buyFuel;window.buyMeal=buyMeal;window.buyStoreGoods=buyStoreGoods;window.repairVehicle=repairVehicle;
-initFeatureUI();loadPlaces();updateEconomyHUD();scheduleRandomOrder();
+window.buyPizzeria=buyPizzeria;window.hireCourier=hireCourier;window.refreshFleetMarkers=refreshFleetMarkers;window.showPizzeriaPanel=showPizzeriaPanel;window.generateOrder=generateOrder;window.acceptOrder=acceptOrder;window.rejectOrder=rejectOrder;window.closeFeaturePanel=closePanel;window.showPlacesPanel=showPlacesPanel;window.startPlacePlacement=startPlacePlacement;window.saveNewPlace=saveNewPlace;window.listCustomPlaces=listCustomPlaces;window.togglePlace=togglePlace;window.deletePlace=deletePlace;window.editPlace=editPlace;window.savePlaceEdit=savePlaceEdit;window.movePlace=movePlace;window.openPlacePanel=openPlacePanel;window.buyFuel=buyFuel;window.buyMeal=buyMeal;window.buyStoreGoods=buyStoreGoods;window.repairVehicle=repairVehicle;
+initFeatureUI();loadPlaces();loadBusiness();updateEconomyHUD();scheduleRandomOrder();
 let economyLast=performance.now();function economyLoop(now){const dt=Math.min((now-economyLast)/1000,.1);economyLast=now;economyTick(dt);requestAnimationFrame(economyLoop);}requestAnimationFrame(economyLoop);
 
 function locateStart(){
