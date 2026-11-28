@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR — STREET EDITION 1.4
+PIZZA DELIVERY SIMULATOR — STREET EDITION 1.5
 
 Instalación: descomprime y sube todos los archivos a la raíz del repositorio de GitHub Pages. En el teléfono, cierra por completo la PWA anterior y vuelve a abrirla para que el nuevo service worker sustituya la caché anterior.
 
@@ -45,3 +45,9 @@ AJUSTES 1.4 — NOCHE, RUTA Y CRECIMIENTO DEL NEGOCIO
 - Módulo de pizzería propia: compra del local por $12,000, contratación de repartidores por $2,500.
 - Cada repartidor simula entregas en ciclos de 90 segundos: ventas $220, costo operativo $70, utilidad $150 por repartidor y ciclo. El saldo, ventas y entregas se guardan localmente.
 - Los repartidores aparecen como marcadores móviles sobre la ruta activa del juego; la simulación de rutas autónomas independientes y recogida de pedidos reales es una fase posterior.
+
+AJUSTES 1.5 — MODO LIBRE Y HORARIO
+- En modo libre: velocidad máxima normal de 70 km/h; turbo libre hasta 100 km/h.
+- Turbo en modo libre dura 10 minutos y, al terminar, inicia una recarga de 15 segundos.
+- En modo normal se conserva la configuración anterior: velocidad y turbo actuales sin cambios.
+- Horario del ciclo: tarde desde 16:30, iluminación de faros y postes desde 18:30, amanecer desde 06:00 y salida de la noche a las 06:00.

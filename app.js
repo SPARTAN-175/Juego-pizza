@@ -389,7 +389,10 @@ function gameFrame(now){
  trafficAccumulator+=dt;if(trafficAccumulator>=.08){updateTraffic(trafficAccumulator);trafficAccumulator=0;}
  if(routeReady){elapsedSeconds+=dt;$('timer').textContent=String(Math.floor(elapsedSeconds/60)).padStart(2,'0')+':'+String(Math.floor(elapsedSeconds%60)).padStart(2,'0');}
  if(routeReady&&routeLength>0){
-  if(accelerate)speed=Math.min(MAX_SPEED,speed+ACCEL*dt);
+  if(accelerate){
+   const freeModeCap=freeDriveMode?(Date.now()<turboUntil?100/3.6:70/3.6):MAX_SPEED;
+   speed=Math.min(freeModeCap,speed+ACCEL*dt);
+  }
   else if(brake)speed=Math.max(-2.5,speed-BRAKE*dt);
   else if(speed>0)speed=Math.max(0,speed-1.8*dt);
   else if(speed<0)speed=Math.min(0,speed+2.2*dt);
@@ -512,7 +515,18 @@ function buyFuel(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPl
 function buyMeal(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPlace(p))return;const cost=Math.max(20,p.price||45);if(wallet<cost){showToast('Saldo insuficiente.');return;}wallet-=cost;hunger=Math.min(100,hunger+35);energy=Math.min(100,energy+18);updateEconomyHUD();closePanel();showToast('Comida comprada. Hambre y energía recuperadas.');}
 function buyStoreGoods(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPlace(p))return;const goods=productCatalog[Math.floor(Math.random()*productCatalog.length)];const cost=goods.price;if(wallet<cost){showToast('Saldo insuficiente.');return;}wallet-=cost;updateEconomyHUD();closePanel();showToast(`${goods.name} comprado por ${money(cost)}. Existencias disponibles.`);}
 function repairVehicle(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPlace(p))return;const cost=Math.max(50,p.price||120);if(wallet<cost){showToast('Saldo insuficiente.');return;}wallet-=cost;vehicleHealth=100;updateEconomyHUD();closePanel();showToast('Vehículo reparado.');}
-function activateTurbo(){const now=Date.now();if(now<turboCooldown){showToast(`Turbo listo en ${Math.ceil((turboCooldown-now)/1000)} s.`);return;}if(fuel<8){showToast('Necesitas al menos 8% de gasolina para el turbo.');return;}turboUntil=now+60000;turboCooldown=now+75000;MAX_SPEED=Math.max(MAX_SPEED,17.5);showToast('¡Turbo activado por 1 minuto! Al terminar, se recarga en 15 segundos.');}
+function activateTurbo(){
+ const now=Date.now();
+ if(now<turboCooldown){showToast(`Turbo listo en ${Math.ceil((turboCooldown-now)/1000)} s.`);return;}
+ if(fuel<8&&!(fuel<=0&&reserveActive&&reserveFuel>0)){showToast('Necesitas combustible para usar el turbo.');return;}
+ if(freeDriveMode){
+  turboUntil=now+600000;turboCooldown=now+615000;
+  showToast('🚀 TURBO LIBRE: 10 minutos a un máximo de 100 km/h. Recarga en 15 segundos al terminar.');
+ }else{
+  turboUntil=now+60000;turboCooldown=now+75000;MAX_SPEED=Math.max(MAX_SPEED,17.5);
+  showToast('¡Turbo activado por 1 minuto! Al terminar, se recarga en 15 segundos.');
+ }
+}
 function activateReserve(){if(fuel>0){showToast('La reserva solo se habilita cuando el tanque principal se agota.');return;}if(reserveActive){showToast('La reserva ya está activa.');return;}if(reserveFuel<=0){showToast('La reserva también se agotó. Necesitas asistencia.');return;}reserveActive=true;showToast('Reserva activada: conduce despacio hasta una gasolinera.');}
 function consumeFuel(dt){
  const turboFactor=Date.now()<turboUntil?1.65:1;
@@ -527,7 +541,17 @@ function consumeFuel(dt){
  }else if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;showToast('Sin combustible. Necesitas asistencia.');}
 }
 
-function economyTick(dt){gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;const tint=$('nightTint');if(tint){const h=gameClockMinutes/60;const night=h<5.5||h>20.5;setNightLighting(night); tint.style.background=night?'rgba(8,18,43,.43)':(h<7||h>18.5?'rgba(235,139,65,.13)':'transparent');}updateFleet(dt);if(routeReady&&Math.abs(speed)>.5){consumeFuel(dt);hunger=Math.max(0,hunger-dt*.035);energy=Math.max(0,energy-dt*.02);vehicleHealth=Math.max(0,vehicleHealth-dt*.001);}if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;}if(Date.now()>turboUntil&&MAX_SPEED>BASE_MAX_SPEED+(level-1)*.8)MAX_SPEED=Math.min(19,BASE_MAX_SPEED+(level-1)*.8);updateEconomyHUD();}
+function economyTick(dt){
+ gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;
+ const tint=$('nightTint');
+ if(tint){
+  const h=gameClockMinutes/60;
+  const night=h>=18.5||h<6;
+  const dusk=h>=16.5&&h<18.5;
+  const dawn=h>=6&&h<7;
+  setNightLighting(night);
+  tint.style.background=night?'rgba(8,18,43,.48)':(dusk?'rgba(235,139,65,.20)':(dawn?'rgba(255,191,112,.10)':'transparent'));
+ }updateFleet(dt);if(routeReady&&Math.abs(speed)>.5){consumeFuel(dt);hunger=Math.max(0,hunger-dt*.035);energy=Math.max(0,energy-dt*.02);vehicleHealth=Math.max(0,vehicleHealth-dt*.001);}if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;}if(Date.now()>turboUntil&&MAX_SPEED>BASE_MAX_SPEED+(level-1)*.8)MAX_SPEED=Math.min(19,BASE_MAX_SPEED+(level-1)*.8);updateEconomyHUD();}
 // La tarjeta de misión existente también sirve para completar pedidos externos.
 const baseUpdateMission=updateMission;
 updateMission=function(){if(activeOrder){$('missionName').textContent=activeOrder.phase==='store'?'Ir a la tienda':'Entregar al cliente';$('missionDistance').textContent=`${activeOrder.customer} · ${Math.round(distance(playerPos,activeOrder.destination))} m`; $('routeStatus').textContent='PEDIDO EXTERNO';$('routeKm').textContent=activeOrder.kind==='shopping'?(activeOrder.phase==='store'?'COMPRA':'ENTREGA'):'PIZZA';$('deliver').textContent=activeOrder.phase==='store'?'CONFIRMAR COMPRA':'COBRAR PEDIDO';$('deliver').disabled=!destinationReached(160);return;}$('deliver').textContent='ENTREGAR PIZZA';baseUpdateMission();};
