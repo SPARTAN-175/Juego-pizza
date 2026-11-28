@@ -1,4 +1,4 @@
-PIZZA DELIVERY SIMULATOR — STREET EDITION 1.2
+PIZZA DELIVERY SIMULATOR — STREET EDITION 1.3
 
 Instalación: descomprime y sube todos los archivos a la raíz del repositorio de GitHub Pages. En el teléfono, cierra por completo la PWA anterior y vuelve a abrirla para que el nuevo service worker sustituya la caché anterior.
 
@@ -28,3 +28,11 @@ AJUSTES 1.2 — ENTREGAS Y PREPARACIÓN DE CIUDAD
 - Al aceptar una compra, el juego toma la ubicación de una tienda colocada en el mapa; primero se navega a esa tienda y después al domicilio del cliente.
 - El panel NEGOCIOS indica cuántas tiendas, gasolineras y otros negocios hay colocados.
 - Deben colocarse manualmente en el mapa las ubicaciones que se quieran usar. No se inventan comercios reales ni se crean ubicaciones aleatorias de tiendas.
+
+AJUSTES 1.3 — TECLADO, VELOCIDAD, CONSUMO Y RESPONSIVIDAD
+- Teclado: W o flecha arriba para avanzar; S o flecha abajo para frenar y luego retroceder. Las teclas se ignoran al escribir en campos de texto.
+- Velocidad inicial ajustada a 12.5 m/s (45 km/h), manteniendo la progresión por nivel.
+- Turbo: 60 segundos activo y 15 segundos de recarga después de terminar.
+- Consumo de gasolina y hambre/energía ajustado para que sea perceptible mientras el vehículo se mueve.
+- La reserva del 8% se activa automáticamente cuando el tanque principal llega a cero y se consume después.
+- Controles y paneles más grandes en escritorio; los estilos compactos existentes se conservan en móviles.

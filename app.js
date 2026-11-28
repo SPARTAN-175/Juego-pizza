@@ -35,7 +35,8 @@ let followPlayer=true, mode='game';
 let freeDriveMode=false, freeDestination=null, freeDestinationMarker=null, lastTrafficRefreshPos=null, trafficRefreshBusy=false;
 let accelerate=false, brake=false;
 let lastFrame=performance.now(), toastTimer=null, offRouteFrames=0, lastRerouteAt=0, trafficAccumulator=0;
-let MAX_SPEED=9.5;
+const BASE_MAX_SPEED=12.5; // 45 km/h al inicio
+let MAX_SPEED=BASE_MAX_SPEED;
 const ACCEL=5.0, BRAKE=8.0;
 const CLIENTS=[
   {name:'Cliente 1',offset:[0.0010,0.0011]},
@@ -305,7 +306,7 @@ function finishDelivery(){
  map.removeLayer(customerMarkers[targetIndex]);targetIndex++;deliveries++;
  speed=0;updateEconomyHUD();showToast(`🍕 ¡Pizza entregada! Venta registrada: ${money(salePrice)} para la pizzería.`);
  if(targetIndex>=CLIENTS.length){
-  level++;targetIndex=0;deliveries=0;MAX_SPEED=Math.min(16,9.5+(level-1)*0.8);
+  level++;targetIndex=0;deliveries=0;MAX_SPEED=Math.min(19,BASE_MAX_SPEED+(level-1)*0.8);
   CLIENTS.forEach(c=>{const spread=.0015+Math.random()*.0025;c.offset=[(Math.random()-.5)*spread*2,(Math.random()-.5)*spread*2];});
   createCustomers();$('level').textContent=String(level);showToast('⭐ ¡Nivel '+level+'! Más velocidad y nuevos domicilios.');
   updateMission();routeToCurrentCustomer();return;
@@ -323,6 +324,22 @@ function bindHold(id,setter){
 }
 bindHold('accelerate',v=>accelerate=v);
 bindHold('brake',v=>brake=v);
+
+const drivingKeys=new Set(['ArrowUp','KeyW','ArrowDown','KeyS']);
+function isTypingTarget(el){return !!el&&(['INPUT','TEXTAREA','SELECT'].includes(el.tagName)||el.isContentEditable);}
+window.addEventListener('keydown',e=>{
+ if(isTypingTarget(e.target))return;
+ if(!drivingKeys.has(e.code))return;
+ e.preventDefault();
+ if(e.code==='ArrowUp'||e.code==='KeyW')accelerate=true;
+ if(e.code==='ArrowDown'||e.code==='KeyS')brake=true;
+});
+window.addEventListener('keyup',e=>{
+ if(e.code==='ArrowUp'||e.code==='KeyW')accelerate=false;
+ if(e.code==='ArrowDown'||e.code==='KeyS')brake=false;
+});
+window.addEventListener('blur',()=>{accelerate=false;brake=false;});
+
 
 
 function gameFrame(now){
@@ -384,7 +401,7 @@ function initFeatureUI(){
  const root=featureRoot();root.innerHTML=`<div id="nightTint"></div><div class="economy-hud"><span class="economy-chip">💵 $<b id="walletVal">350</b></span><span class="economy-chip">⛽ <b id="fuelVal">78</b>%</span><span class="economy-chip">🍔 <b id="hungerVal">82</b>%</span><span class="economy-chip">⚡ <b id="energyVal">90</b>%</span><span class="economy-chip">🛵 <b id="healthVal">100</b>%</span><span class="economy-chip">🕒 <b id="clockVal">08:00</b></span></div><div class="feature-dock"><button class="feature-btn" id="ordersBtn">📦 PEDIDOS</button><button class="feature-btn" id="placesBtn">🏪 NEGOCIOS</button><button class="feature-btn" id="turboBtn">⚡ TURBO</button><button class="feature-btn" id="reserveBtn" style="display:none">⛽ RESERVA</button></div>`;
  $('ordersBtn').onclick=showOrdersPanel;$('placesBtn').onclick=showPlacesPanel;$('turboBtn').onclick=activateTurbo;$('reserveBtn').onclick=activateReserve;
 }
-function updateEconomyHUD(){[['walletVal',Math.floor(wallet)],['fuelVal',Math.floor(fuel)],['hungerVal',Math.floor(hunger)],['energyVal',Math.floor(energy)],['healthVal',Math.floor(vehicleHealth)],['clockVal',String(Math.floor(gameClockMinutes/60)%24).padStart(2,'0')+':'+String(Math.floor(gameClockMinutes%60)).padStart(2,'0')]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});const rb=$('reserveBtn');if(rb){rb.style.display=fuel<=0?'block':'none';rb.disabled=reserveFuel<=0||reserveActive;rb.textContent=reserveActive?`⛽ RESERVA ${Math.ceil(reserveFuel)}%`:`⛽ ACTIVAR RESERVA (${Math.ceil(reserveFuel)}%)`;}}
+function updateEconomyHUD(){[['walletVal',Math.floor(wallet)],['fuelVal',Math.floor(fuel)],['hungerVal',Math.floor(hunger)],['energyVal',Math.floor(energy)],['healthVal',Math.floor(vehicleHealth)],['clockVal',String(Math.floor(gameClockMinutes/60)%24).padStart(2,'0')+':'+String(Math.floor(gameClockMinutes%60)).padStart(2,'0')]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});const rb=$('reserveBtn');if(rb){rb.style.display=fuel<=0?'block':'none';rb.disabled=reserveFuel<=0||reserveActive;rb.textContent=reserveActive?`⛽ RESERVA ACTIVA ${Math.ceil(reserveFuel)}%`:`⛽ RESERVA DISPONIBLE ${Math.ceil(reserveFuel)}%`;}}
 function money(n){return '$'+Math.round(n).toLocaleString('es-MX');}
 function showOrdersPanel(){panel(`<h3>📦 Centro de pedidos</h3><p>Los pedidos externos aparecen automáticamente de manera aleatoria. Puedes aceptarlos o rechazarlos; mientras tanto, tus entregas normales continúan.</p><div class="feature-card">Saldo disponible: <b>${money(wallet)}</b><br>${activeOrder?`Pedido activo: ${escapeHTML(activeOrder.title)} · Etapa: ${activeOrder.phase==='store'?'Ir a la tienda':'Entregar al cliente'}`:'No tienes pedido externo activo.'}</div><div class="feature-actions"><button class="feature-btn" onclick="window.closeFeaturePanel()">Cerrar</button></div>`);}
 function scheduleRandomOrder(){clearTimeout(randomOrderTimer);const delay=(45+Math.random()*105)*1000;randomOrderTimer=setTimeout(()=>{if(!activeOrder&&!incomingOrder&&mode==='game')generateOrder(true);scheduleRandomOrder();},delay);}
@@ -414,11 +431,22 @@ function buyFuel(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPl
 function buyMeal(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPlace(p))return;const cost=Math.max(20,p.price||45);if(wallet<cost){showToast('Saldo insuficiente.');return;}wallet-=cost;hunger=Math.min(100,hunger+35);energy=Math.min(100,energy+18);updateEconomyHUD();closePanel();showToast('Comida comprada. Hambre y energía recuperadas.');}
 function buyStoreGoods(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPlace(p))return;const goods=productCatalog[Math.floor(Math.random()*productCatalog.length)];const cost=goods.price;if(wallet<cost){showToast('Saldo insuficiente.');return;}wallet-=cost;updateEconomyHUD();closePanel();showToast(`${goods.name} comprado por ${money(cost)}. Existencias disponibles.`);}
 function repairVehicle(id){const p=customPlaces.find(x=>x.id===id);if(!p||!requireAtPlace(p))return;const cost=Math.max(50,p.price||120);if(wallet<cost){showToast('Saldo insuficiente.');return;}wallet-=cost;vehicleHealth=100;updateEconomyHUD();closePanel();showToast('Vehículo reparado.');}
-function activateTurbo(){const now=Date.now();if(now<turboCooldown){showToast(`Turbo listo en ${Math.ceil((turboCooldown-now)/1000)} s.`);return;}if(fuel<8){showToast('Necesitas al menos 8% de gasolina para el turbo.');return;}turboUntil=now+12000;turboCooldown=now+72000;MAX_SPEED=Math.max(MAX_SPEED,15);showToast('¡Turbo activado por 12 segundos! Se recarga en 60 segundos.');}
+function activateTurbo(){const now=Date.now();if(now<turboCooldown){showToast(`Turbo listo en ${Math.ceil((turboCooldown-now)/1000)} s.`);return;}if(fuel<8){showToast('Necesitas al menos 8% de gasolina para el turbo.');return;}turboUntil=now+60000;turboCooldown=now+75000;MAX_SPEED=Math.max(MAX_SPEED,17.5);showToast('¡Turbo activado por 1 minuto! Al terminar, se recarga en 15 segundos.');}
 function activateReserve(){if(fuel>0){showToast('La reserva solo se habilita cuando el tanque principal se agota.');return;}if(reserveActive){showToast('La reserva ya está activa.');return;}if(reserveFuel<=0){showToast('La reserva también se agotó. Necesitas asistencia.');return;}reserveActive=true;showToast('Reserva activada: conduce despacio hasta una gasolinera.');}
-function consumeFuel(dt){const rate=dt*(.025+(Date.now()<turboUntil?.035:0));if(fuel>0){const used=Math.min(fuel,rate);fuel-=used;}else if(reserveActive&&reserveFuel>0){reserveFuel=Math.max(0,reserveFuel-rate*1.6);}else if(Math.abs(speed)>.2){speed=0;showToast('Sin combustible. Activa la reserva para llegar a una gasolinera.');}}
+function consumeFuel(dt){
+ const turboFactor=Date.now()<turboUntil?1.65:1;
+ const rate=dt*.0065*turboFactor;
+ if(fuel>0){
+  fuel=Math.max(0,fuel-rate);
+  if(fuel===0&&!reserveActive&&reserveFuel>0){reserveActive=true;showToast('⛽ Tanque principal vacío: reserva del 8% activada automáticamente. Busca una gasolinera.');}
+ }
+ if(fuel<=0&&reserveActive&&reserveFuel>0){
+  reserveFuel=Math.max(0,reserveFuel-rate*1.35);
+  if(reserveFuel===0){speed=0;showToast('Se agotó también la reserva. Necesitas asistencia.');}
+ }else if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;showToast('Sin combustible. Necesitas asistencia.');}
+}
 
-function economyTick(dt){gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;const tint=$('nightTint');if(tint){const h=gameClockMinutes/60;const night=h<5.5||h>20.5; tint.style.background=night?'rgba(8,18,43,.43)':(h<7||h>18.5?'rgba(235,139,65,.13)':'transparent');}if(routeReady&&Math.abs(speed)>.5){consumeFuel(dt);hunger=Math.max(0,hunger-dt*.004);energy=Math.max(0,energy-dt*.003);}if(fuel<=0&&!reserveActive&&Math.abs(speed)>.2){speed*=.96;}if(Date.now()>turboUntil&&MAX_SPEED>9.5+(level-1)*.8)MAX_SPEED=9.5+(level-1)*.8;updateEconomyHUD();}
+function economyTick(dt){gameClockMinutes=(gameClockMinutes+dt*2.4)%1440;const tint=$('nightTint');if(tint){const h=gameClockMinutes/60;const night=h<5.5||h>20.5; tint.style.background=night?'rgba(8,18,43,.43)':(h<7||h>18.5?'rgba(235,139,65,.13)':'transparent');}if(routeReady&&Math.abs(speed)>.5){consumeFuel(dt);hunger=Math.max(0,hunger-dt*.008);energy=Math.max(0,energy-dt*.0045);}if(fuel<=0&&reserveFuel<=0&&Math.abs(speed)>.2){speed=0;}if(Date.now()>turboUntil&&MAX_SPEED>BASE_MAX_SPEED+(level-1)*.8)MAX_SPEED=Math.min(19,BASE_MAX_SPEED+(level-1)*.8);updateEconomyHUD();}
 // La tarjeta de misión existente también sirve para completar pedidos externos.
 const baseUpdateMission=updateMission;
 updateMission=function(){if(activeOrder){$('missionName').textContent=activeOrder.phase==='store'?'Ir a la tienda':'Entregar al cliente';$('missionDistance').textContent=`${activeOrder.customer} · ${Math.round(distance(playerPos,activeOrder.destination))} m`; $('routeStatus').textContent='PEDIDO EXTERNO';$('routeKm').textContent=activeOrder.kind==='shopping'?(activeOrder.phase==='store'?'COMPRA':'ENTREGA'):'PIZZA';$('deliver').textContent=activeOrder.phase==='store'?'CONFIRMAR COMPRA':'COBRAR PEDIDO';$('deliver').disabled=!destinationReached(160);return;}$('deliver').textContent='ENTREGAR PIZZA';baseUpdateMission();};
