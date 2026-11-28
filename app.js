@@ -40,9 +40,9 @@ let freeDriveMode=false, freeDestination=null, freeDestinationMarker=null, lastT
 let accelerate=false, brake=false;
 let lastFrame=performance.now(), toastTimer=null, offRouteFrames=0, lastRerouteAt=0, trafficAccumulator=0;
 const BASE_MAX_SPEED=12.5; // 45 km/h al inicio
-const FREE_NORMAL_SPEED=30.225/3.6; // 30.225 km/h: 60.45 km en 2 h simuladas
-const FREE_TURBO_SPEED=40.3/3.6; // 40.3 km/h: 60.45 km en 1.5 h simuladas
-const FREE_TIME_SCALE=10; // Compresión 10x: 12 min reales equivalen a 2 h simuladas a velocidad normal
+const FREE_NORMAL_SPEED=60/3.6; // Velocidad media de referencia en conducción libre
+const FREE_TURBO_SPEED=80/3.6; // Velocidad media de referencia con turbo
+const FREE_TIME_SCALE=10; // El desplazamiento y el reloj se comprimen 10x en modo libre
 let MAX_SPEED=BASE_MAX_SPEED;
 const ACCEL=5.0, BRAKE=8.0;
 const CLIENTS=[
@@ -291,6 +291,19 @@ function setNightLighting(isNight){
  });
 }
 
+function formatTravelTime(minutes){
+ const total=Math.max(0,Math.round(minutes));
+ const h=Math.floor(total/60),m=total%60;
+ return h?`${h} h ${String(m).padStart(2,'0')} min`:`${m} min`;
+}
+function updateFreeTravelEstimate(distanceMeters){
+ const el=$('travelEstimate');if(!el)return;
+ if(!freeDriveMode||!Number.isFinite(distanceMeters)||distanceMeters<=0){el.textContent='';return;}
+ const km=distanceMeters/1000;
+ const normalReal=km/60*60, turboReal=km/80*60;
+ const normalGame=normalReal/FREE_TIME_SCALE, turboGame=turboReal/FREE_TIME_SCALE;
+ el.innerHTML=`<span>ETA normal: <b>${formatTravelTime(normalGame)}</b></span><span>Turbo: <b>${formatTravelTime(turboGame)}</b></span><small>Equivalente real: ${formatTravelTime(normalReal)} / ${formatTravelTime(turboReal)}</small>`;
+}
 function requestRoute(start,destination,first=false,via=null){
  if(!routeControl){
   routeControl=L.Routing.control({
@@ -317,8 +330,10 @@ function requestRoute(start,destination,first=false,via=null){
    // La primera coordenada viene ajustada a la red vial por el motor de rutas.
    playerPos=routeCoords[0];heading=bearingAt(1);
    updateRider();updateRouteProgressLine();placeStreetLamps();refreshFleetMarkers();
-   const km=(r.summary.totalDistance/1000).toFixed(2);
+   const routeMeters=Number(r.summary.totalDistance)||routeLength;
+   const km=(routeMeters/1000).toFixed(2);
    $('routeKm').textContent=`${km} km`;
+   updateFreeTravelEstimate(routeMeters);
    $('routeStatus').textContent=freeDriveMode?'RUTA LIBRE · OSRM':'RUTA POR CALLES';
    $('driveStatus').textContent=freeDriveMode?'DESTINO LIBRE · CONDUCE':'RUTA LISTA · ¡A REPARTIR!';
    if(freeDriveMode){
@@ -492,8 +507,16 @@ function buyPizzeria(){const cost=12000;if(pizzeriaOwned)return;if(wallet<cost){
 function hireCourier(){const cost=2500;if(!pizzeriaOwned)return;if(wallet<cost){showToast('No tienes suficiente dinero para contratar.');return;}wallet-=cost;hiredDrivers++;persistBusiness();updateEconomyHUD();refreshFleetMarkers();showToast('Nuevo repartidor contratado.');showPizzeriaPanel();}
 
 function showOrdersPanel(){panel(`<h3>📦 Centro de pedidos</h3><p>Los pedidos externos aparecen automáticamente de manera aleatoria. Puedes aceptarlos o rechazarlos; mientras tanto, tus entregas normales continúan.</p><div class="feature-card">Saldo disponible: <b>${money(wallet)}</b><br>${activeOrder?`Pedido activo: ${escapeHTML(activeOrder.title)} · Etapa: ${activeOrder.phase==='store'?'Ir a la tienda':'Entregar al cliente'}`:'No tienes pedido externo activo.'}</div><div class="feature-actions"><button class="feature-btn" onclick="window.closeFeaturePanel()">Cerrar</button></div>`);}
-function scheduleRandomOrder(){clearTimeout(randomOrderTimer);const delay=(45+Math.random()*105)*1000;randomOrderTimer=setTimeout(()=>{if(!activeOrder&&!incomingOrder&&mode==='game')generateOrder(true);scheduleRandomOrder();},delay);}
-function generateOrder(automatic=false){if(incomingOrder||activeOrder){if(!automatic)showToast('Termina o rechaza el pedido actual primero.');return;}const availableStores=customPlaces.filter(p=>p.enabled!==false&&p.category==='store');
+function scheduleRandomOrder(){
+ clearTimeout(randomOrderTimer);
+ if(freeDriveMode||mode!=='game')return;
+ const delay=(45+Math.random()*105)*1000;
+ randomOrderTimer=setTimeout(()=>{
+  if(!freeDriveMode&&!activeOrder&&!incomingOrder&&mode==='game')generateOrder(true);
+  scheduleRandomOrder();
+ },delay);
+}
+function generateOrder(automatic=false){if(freeDriveMode){if(!automatic)showToast('Los pedidos están pausados durante la conducción libre.');return;}if(incomingOrder||activeOrder){if(!automatic)showToast('Termina o rechaza el pedido actual primero.');return;}const availableStores=customPlaces.filter(p=>p.enabled!==false&&p.category==='store');
  const shopping=availableStores.length>0&&Math.random()<.48;
  const distanceM=500+Math.random()*2200;const fee=Math.round(28+distanceM/100);
  const product=shopping?productCatalog[Math.floor(Math.random()*productCatalog.length)]:null;
@@ -525,7 +548,7 @@ function activateTurbo(){
  if(fuel<8&&!(fuel<=0&&reserveActive&&reserveFuel>0)){showToast('Necesitas combustible para usar el turbo.');return;}
  if(freeDriveMode){
   turboUntil=now+600000;turboCooldown=now+615000;
-  showToast('🚀 TURBO LIBRE: 10 minutos a un máximo de 40.3 km/h simulados. Recarga en 15 segundos al terminar.');
+  showToast('🚀 TURBO LIBRE: 10 minutos a un máximo de 80 km/h. Recarga en 15 segundos al terminar.');
  }else{
   turboUntil=now+60000;turboCooldown=now+75000;MAX_SPEED=Math.max(MAX_SPEED,17.5);
   showToast('¡Turbo activado por 1 minuto! Al terminar, se recarga en 15 segundos.');
@@ -621,21 +644,34 @@ function searchArea(){
 // Botón largo sobre el logotipo permite buscar otra localidad.
 $('searchArea').addEventListener('click',searchArea);
 function setFreeDriveMode(enabled){
+ if(enabled&&activeOrder){showToast('Termina el pedido activo antes de entrar al modo libre.');return;}
  freeDriveMode=enabled;
  $('freeDrive').classList.toggle('active',enabled);
  $('freeDrive').innerHTML=enabled?'🧭 <span>LIBRE ACTIVO</span>':'🧭 <span>MODO LIBRE</span>';
  if(enabled){
+  clearTimeout(randomOrderTimer);
+  if(incomingOrder){incomingOrder=null;clearInterval(orderCountdown);closePanel();}
+  const ordersButton=$('ordersBtn');if(ordersButton)ordersButton.style.display='none';
+  speed=0;routeReady=false;routePending=false;progress=0;routeCoords=[];routeCumulative=[];routeLength=0;
+  if(routeProgressLine){map.removeLayer(routeProgressLine);routeProgressLine=null;}
+  if(routeOutlineLine){map.removeLayer(routeOutlineLine);routeOutlineLine=null;}
+  customerMarkers.forEach(m=>{if(map.hasLayer(m))map.removeLayer(m);});
+  const estimate=$('travelEstimate');if(estimate)estimate.textContent='';
+  $('routeKm').textContent='—';
   $('missionName').textContent='Conducción libre';
   $('missionDistance').textContent='Toca cualquier punto del mapa para elegir destino';
   $('routeStatus').textContent='ESPERANDO DESTINO';
   $('deliver').disabled=true;
   showToast('Modo libre: toca el mapa para elegir a dónde conducir.');
  }else{
+  const ordersButton=$('ordersBtn');if(ordersButton)ordersButton.style.display='';
+  customerMarkers.forEach(m=>{if(!map.hasLayer(m))m.addTo(map);});
   if(freeDestinationMarker){map.removeLayer(freeDestinationMarker);freeDestinationMarker=null;}
   freeDestination=null;
   updateMission();
   showToast('Modo reparto activado.');
   if(targetIndex<CLIENTS.length)routeToCurrentCustomer();
+  scheduleRandomOrder();
  }
 }
 $('freeDrive').addEventListener('click',()=>setFreeDriveMode(!freeDriveMode));

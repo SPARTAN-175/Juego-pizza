@@ -73,3 +73,20 @@ AJUSTES 1.7 — COMPRESIÓN MODERADA DEL TIEMPO EN MODO LIBRE
 - El turbo libre conserva 10 minutos de activación y 15 segundos de recarga.
 
 Validación 1.7: `node --check app.js` y prueba de integridad del ZIP. No se realizó una prueba de juego en navegador real. La duración real puede variar por aceleración, frenadas, tráfico, paradas y recalculados de ruta.
+
+
+AJUSTES 1.8 — ESTIMACIÓN DE VIAJE Y MODO LIBRE SIN PEDIDOS
+- Velocidad de referencia en modo libre: 60 km/h normal y 80 km/h con turbo.
+- El cálculo usa la distancia real devuelta por OSRM: tiempo real de referencia = distancia (km) / velocidad (km/h) × 60.
+- La experiencia conserva compresión 10x para desplazamiento y reloj del mundo. La duración jugable estimada es el tiempo de referencia dividido entre 10.
+- La tarjeta de navegación muestra ETA normal y ETA turbo para cada destino, además del equivalente de tiempo real.
+- En modo libre se oculta el botón PEDIDOS, se cancelan solicitudes entrantes y se pausa la generación automática. Si existe un pedido aceptado, se debe terminar antes de entrar al modo libre.
+- Al volver al modo reparto se reactiva la generación de pedidos.
+- La velocidad de referencia es un promedio configurable, no una promesa de velocidad constante. Curvas, paradas, tráfico y aceleración pueden cambiar la duración observada.
+
+MAPA SIN INTERNET — LIMITACIÓN IMPORTANTE
+- La aplicación y sus archivos pueden abrirse como PWA, pero el mapa base, la búsqueda de localidades y el cálculo de rutas usan proveedores externos.
+- No se incorporó una descarga masiva de mosaicos: los servidores públicos actuales de OpenStreetMap, CARTO y Esri tienen condiciones de uso y caché distintas; no se debe asumir que permiten descargar zonas completas para uso offline.
+- Para un mapa offline real se necesita integrar un proveedor con licencia explícita para paquetes offline o alojar mosaicos propios (por ejemplo, un paquete MBTiles/PMTiles servido localmente), además de datos de rutas y búsqueda offline. No se anuncia compatibilidad offline completa hasta implementar y probar esa solución.
+
+Validación 1.8: `node --check app.js` y prueba de integridad del ZIP. No se realizó una prueba de conducción en navegador real.

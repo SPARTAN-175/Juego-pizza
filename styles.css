@@ -158,3 +158,10 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#dce8dc;col
 @media (max-width:899px){
  .streetlamp .lamp-glow{width:54px;height:54px;left:-10px}
 }
+
+/* 1.8: estimación de viaje en modo libre */
+.travel-estimate{display:none;flex-direction:column;gap:3px;margin-top:4px;padding:7px 8px;border-radius:9px;background:#ffffff12;border:1px solid #ffffff18;color:#e7f4ec;font-size:10px;line-height:1.35}
+.travel-estimate:not(:empty){display:flex}
+.travel-estimate span{display:flex;justify-content:space-between;gap:8px}
+.travel-estimate b{color:#79e5b2;font-variant-numeric:tabular-nums}
+.travel-estimate small{color:#aebfb5;font-size:8px}
